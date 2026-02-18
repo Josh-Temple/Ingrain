@@ -1,129 +1,109 @@
-# Ingrain — AI-friendly flashcard app (personal use)
-Ankiの思想を参考にしつつ、「登録のしやすさ」と「AI出力からの高速インポート」に最適化した個人用フラッシュカードAndroidアプリ。
+# Ingrain — AI-friendly Flashcards (personal)
+Ingrainは、Ankiの思想を参考にしつつ「登録のしにくさ」を解消するために作る、個人用フラッシュカードAndroidアプリです。  
+AIが生成した出力をコピペして大量登録できることを最優先にし、復習ロジックはSuperMemo（SM-2）をベースにしたシンプル版にします。
 
-## Product goals
-- 1つの入力欄に貼り付け → 自動でカード化（Front/BackをUI上で分けない）
-- AIが生成しやすい形式（JSON Lines）で一括インポート/エクスポート
-- シンプルな復習ロジック：SuperMemo (SM-2) をベースにした簡易アルゴリズム
-- デッキ分割
-- 手動バックアップ（エクスポート）/ 手動復元（インポート）
+## Goals
+- **単一入力欄**に貼り付け → 自動でカード化（UI上でFront/Backを分けない）
+- **AIフレンドリーなインポート**：JSON Lines（1行1カード）
+- **手動バックアップ/復元**：エクスポート/インポート
+- **デッキ分割**
+- 復習アルゴリズム：**SM-2簡易（2択評価）**
 
 ## Non-goals (MVPではやらない)
-- Anki(apkg)完全互換
-- Cloze、画像/音声メディア、リッチエディタ、共有/同期、複雑な統計
+- Anki(apkg)完全互換、同期、共有
+- Cloze、画像/音声などのメディア管理
+- 複雑な統計や高度なスケジューリングUI
 
 ---
 
-# 1) Tech decisions (MVP)
-- Language: Kotlin
-- UI: Jetpack Compose
-- Local DB: Room (SQLite)
-- File access: Storage Access Framework (SAF)
-- JSON: kotlinx.serialization
-
-> NOTE: AIDE環境を想定しつつも、依存関係は最小化。Compose/Room/serialization のみに寄せる。
-
----
-
-# 2) User flows
-## 2.1 Decks
-- Deck list screen
-  - Create deck
-  - Rename deck
-  - Delete deck (with confirm; delete its cards)
-  - Tap deck → Study screen or Add/Import screen
-
-## 2.2 Add cards (single input box)
-- Add screen has ONE text area (multiline)
-- User pastes either:
-  - JSON Lines (preferred)
-  - optionally: a very strict fallback plain format (MVPではJSON LinesのみでもOK)
-- App shows a preview list of parsed cards:
-  - front snippet, back snippet, tags, deck
-  - validation errors per line
-- User taps "Import" → insert cards into DB
-
-## 2.3 Study
-- Study screen for selected deck (and optionally "All decks")
-- Show next due card (front first)
-- Tap "Show answer" → show back
-- Two buttons:
-  - Again (fail)
-  - Good (pass)
-- After rating, schedule updated and next card shown
-- Session ends when due queue empty
-
-## 2.4 Backup / Restore
-- Export (manual backup): choose location via SAF → write JSON Lines
-- Import (restore): choose file via SAF → parse and insert (optionally merge)
-- Conflict policy (MVP):
-  - Deduplicate by (deck_id + front_hash + back_hash) OR (deck + front + back)
-  - If duplicate exists: skip (count as skipped)
+# Tech stack (MVP)
+- Kotlin
+- Jetpack Compose
+- Room (SQLite)
+- DataStore (Preferences)
+- kotlinx.serialization
+- Storage Access Framework (SAF) for import/export
 
 ---
 
-# 3) Data model (Room entities)
-## 3.1 Deck
-- id: Long (PK)
-- name: String (unique)
-- created_at: Long
-- updated_at: Long
+# User flows
+## Decks
+- デッキ一覧（作成/名前変更/削除）
+- デッキ詳細：Study / Add&Import / Export / Settings
 
-## 3.2 Card
-- id: Long (PK)
-- deck_id: Long (FK)
-- front: String
-- back: String
-- tags_json: String (JSON array string)  // simple
-- created_at: Long
-- updated_at: Long
+## Add & Import (single input)
+- 画面に**1つのテキスト入力欄**のみ（Front/Backに分けない）
+- ここにJSON Linesを貼り付け → 行ごとにパース
+- プレビュー表示（成功/失敗/エラー理由）
+- ImportでDBへ保存（重複はスキップ）
 
-## 3.3 Scheduling fields (stored on Card or separate table)
-Store on Card for MVP simplicity:
-- due_at: Long                // next due time (epoch millis)
-- interval_days: Double       // current interval in days
-- ease_factor: Double         // EF (SM-2), default 2.5
-- repetitions: Int            // consecutive successful reviews
-- lapses: Int                 // number of fails
-- last_reviewed_at: Long?     // nullable
+## Study
+- デッキの「期限到来（due）」カードを順番に提示
+- 表示：Front → Show Answer → Back
+- 評価は2択：
+  - Again（失敗）
+  - Good（成功）
 
-## 3.4 ReviewLog (optional but recommended)
-- id: Long (PK)
-- card_id: Long (FK)
-- reviewed_at: Long
-- rating: String ("AGAIN" or "GOOD")
-- prev_due_at: Long
-- new_due_at: Long
-- prev_interval_days: Double
-- new_interval_days: Double
-- prev_ease_factor: Double
-- new_ease_factor: Double
+## Backup / Restore
+- Export：JSON LinesとしてSAFで選んだ場所へ書き出し
+- Import：SAFでファイル選択 → 読み込み → 取り込み（マージ）
 
 ---
 
-# 4) Scheduling algorithm: SM-2 simplified (2-button)
-We adapt SM-2 for only two outcomes:
-- GOOD = pass (treat as quality=4)
-- AGAIN = fail (treat as quality=2)
+# Data model (Room)
+## Deck
+- id (PK)
+- name (unique)
+- created_at
+- updated_at
 
-Parameters (configurable in Settings):
+## Card
+- id (PK)
+- deck_id (FK)
+- front
+- back
+- tags_json  // JSON array string
+- created_at
+- updated_at
+
+### Scheduling fields (MVP: Cardに保持)
+- due_at: Long (epoch millis)
+- interval_days: Double
+- ease_factor: Double (default 2.5)
+- repetitions: Int
+- lapses: Int
+- last_reviewed_at: Long?
+
+## ReviewLog (recommended)
+- id (PK)
+- card_id (FK)
+- reviewed_at
+- rating ("AGAIN" / "GOOD")
+- prev/new: due_at, interval_days, ease_factor
+
+---
+
+# Scheduling algorithm — SM-2 simplified (2-button)
+SM-2の品質(0-5)を、2択に合わせて簡略化します。
+- GOOD = quality 4 相当
+- AGAIN = quality 2 相当
+
+## Settings (configurable)
 - initial_interval_good_days (default 1.0)
 - second_interval_good_days  (default 6.0)
 - min_ease_factor (default 1.3)
-- ease_factor_step_good (default +0.05)   // simplified positive drift
-- ease_factor_step_again (default -0.20)  // penalty on fail
-- lapse_interval_factor (default 0.0)     // fail resets interval to 0 or 1 day; MVP: 0 => due soon
-- again_delay_minutes (default 10)        // same-session relearn, due in 10 min
-- day_start_hour (default 4)              // optional: "day boundary" to keep due stable
+- ease_factor_step_good (default +0.05)
+- ease_factor_step_again (default -0.20)
+- again_delay_minutes (default 10)
 
-### State defaults for new cards
+## New card defaults
 - repetitions = 0
 - lapses = 0
 - interval_days = 0
 - ease_factor = 2.5
 - due_at = now
 
-### On GOOD
+## On GOOD
 If repetitions == 0:
   interval_days = initial_interval_good_days
 Else if repetitions == 1:
@@ -135,136 +115,210 @@ repetitions += 1
 ease_factor = ease_factor + ease_factor_step_good
 due_at = now + interval_days days
 
-### On AGAIN
+## On AGAIN
 lapses += 1
 repetitions = 0
 ease_factor = max(min_ease_factor, ease_factor + ease_factor_step_again)
-
-Option A (recommended for MVP):
-  due_at = now + again_delay_minutes minutes
-  interval_days = 0
-
-> This implements “same-session short retry” behavior.
-> If user wants “fail => tomorrow”, then set again_delay_minutes to 1440 and/or set lapse_interval_factor to 1 day.
+interval_days = 0
+due_at = now + again_delay_minutes minutes
 
 ---
 
-# 5) Import/Export format (AI-friendly)
-## 5.1 JSON Lines (one card per line)
-Each line: one JSON object.
+# Import/Export format (AI-friendly)
+## JSON Lines (1 line = 1 card)
+Each line is one JSON object.
 
-Required:
-- "deck": string (deck name)
-- "front": string
-- "back": string
+### Required
+- deck: string (deck name)
+- front: string
+- back: string
 
-Optional:
-- "tags": array of strings
-- "due_at": number (epoch millis)  // if provided, respects it on import
-- "interval_days": number
-- "ease_factor": number
-- "repetitions": number
-- "lapses": number
+### Optional
+- tags: string[]
+- due_at: number (epoch millis)
+- interval_days: number
+- ease_factor: number
+- repetitions: number
+- lapses: number
 
-Example:
+### Examples
 {"deck":"English","front":"ubiquitous","back":"(adj) present everywhere; widespread","tags":["vocab"]}
 {"deck":"Stats","front":"ベースレート無視とは？","back":"事前確率（ベースレート）を無視して判断する誤り","tags":["cogbias","stats"]}
 
 ### Import rules
-- If deck does not exist, create it.
-- Empty front/back => error (skip line).
-- Maximum length (MVP): front<=4000, back<=8000 (soft limit).
-- Dedup policy: if same (deck + front + back) already exists => skip.
-- If scheduling fields exist, validate ranges:
-  - ease_factor >= min_ease_factor
-  - interval_days >= 0
-  - repetitions/lapses >= 0
-  - due_at reasonable (>= 0)
-  If invalid: ignore scheduling fields and treat as new.
+- deckが存在しなければ作成
+- front/backが空ならその行は失敗としてスキップ
+- 重複判定：同一(deck + front + back)が存在したらスキップ
+- scheduling fieldsが不正なら無視して「新規カード」として扱う
 
 ### Export rules
-- Exports all decks (or selected deck) to JSON Lines
-- Include scheduling fields by default to allow full restore
+- 全デッキ or 選択デッキをJSON Linesで出力
+- scheduling fieldsも出力（完全復元できるように）
 
 ---
 
-# 6) Screens (MVP)
-1. DeckListScreen
-2. DeckDetailScreen (Study / Add / Import / Export)
-3. AddImportScreen (single text area + preview + import)
-4. StudyScreen (front, show answer, again/good)
-5. SettingsScreen (algorithm parameters)
+# Build strategy: develop on phone, build APK in the cloud (GitHub Actions)
+スマホ開発を維持しつつ、ビルドの地雷を減らすために **GitHub Actionsでdebug APKを自動生成**します。
+
+## Step 1: Add workflow
+Create:
+- `.github/workflows/android-debug-apk.yml`
+
+Paste:
+
+```yaml
+name: Android Debug APK
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
+      - name: Build Debug APK
+        run: ./gradlew :app:assembleDebug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ingrain-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+
+Step 2: Download APK
+
+GitHubのActions → 該当run → Artifacts → ingrain-debug-apk をDL
+
+端末へインストール（不明なアプリ許可が必要な場合あり）
+
+
+If module name is not app
+
+./gradlew :app:assembleDebug が失敗する場合、モジュール名が違う可能性があります。
+
+対応：
+
+workflowのビルドコマンドを ./gradlew assembleDebug にして試す
+
+それでもダメなら ./gradlew tasks をCIで実行してタスク名を確認する
+
+
+
+Release (signed) build (later)
+
+個人利用MVPではdebugで十分。必要になったら以下で拡張：
+
+keystoreをGitHub Secretsにbase64で保存
+
+workflow内で復元して assembleRelease を実行
+
+署名情報はSecretsからGradleへ渡す
+
+
 
 ---
 
-# 7) Acceptance criteria (definition of done)
-- Create/rename/delete deck
-- Import JSON Lines by paste (text area) with preview and per-line errors
-- Study due cards in a deck with Again/Good and SM-2 scheduling updates
-- Export JSON Lines to user-selected location
-- Import file JSON Lines via SAF
-- No crashes on invalid JSON lines; errors counted and shown
+Definition of Done (MVP)
+
+デッキCRUDが動作
+
+JSON Linesを貼り付けインポート（プレビュー/エラー表示つき）
+
+dueカードをStudyでき、Again/GoodでSM-2簡易スケジューリング更新
+
+Export/Import（SAF）でバックアップ/復元ができる
+
+GitHub Actionsでdebug APKがartifactとして出力される
+
+不正入力でもクラッシュしない（すべて防御的に処理）
+
+
 
 ---
 
-# 8) Implementation plan (tasks for Codex)
-## Task 0: Project setup
-- Kotlin + Compose + Room + kotlinx.serialization
-- App name: Ingrain
-- Package name: use existing repo settings
-- Basic navigation scaffold
+Codex tasks (implementation plan)
 
-## Task 1: Database layer
-- Room entities: DeckEntity, CardEntity, ReviewLogEntity
-- DAOs: DeckDao, CardDao, ReviewLogDao
-- Repository layer
+Task 0: Project sanity
 
-## Task 2: Scheduling module
-- Scheduler interface:
-  - scheduleOnGood(card, now): CardUpdate
-  - scheduleOnAgain(card, now): CardUpdate
-- Settings storage: DataStore (preferences) for parameters
-- Unit tests for scheduler with fixed timestamps
+Kotlin + Compose + Room + DataStore + kotlinx.serialization
 
-## Task 3: Import/export parsing
-- JSON Lines parser:
-  - parseLines(text): List<ParseResult> (success or error)
-- Preview model
-- Import executor:
-  - create missing decks
-  - dedup
-  - insert cards
-- Export writer:
-  - select deck/all
-  - stream write JSON lines
+Navigation scaffold
 
-## Task 4: UI
-- Deck list CRUD
-- Deck detail actions
-- AddImport screen:
-  - single input box
-  - "Preview" (auto as user types or manual button)
-  - Import button + summary (added/skipped/failed)
-- Study screen:
-  - due queue query
-  - show front/back toggling
-  - Again/Good updates DB + logs
+Minimal theme
 
-## Task 5: SAF file I/O
-- Pick export destination (CreateDocument)
-- Pick import file (OpenDocument)
-- Read/write using content resolver streams
 
-## Task 6: Polish
-- Basic search within deck (optional)
-- Empty states
-- Minimal theming
+Task 1: Database
 
----
+Entities: Deck, Card, ReviewLog
 
-# 9) Notes for Codex
-- Prefer simple, robust code over cleverness.
-- All parsing must be defensive.
-- Keep dependencies minimal.
-- No background sync; no network.
-- Any “later” features must be behind TODOs, not half-implemented.
+DAOs
+
+Repository
+
+
+Task 2: Scheduler
+
+SM-2 simplified module
+
+DataStore settings
+
+Unit tests with fixed timestamps
+
+
+Task 3: Import/Export
+
+JSON Lines parser (line-by-line, defensive)
+
+Preview models
+
+Import executor (create deck, dedup, insert)
+
+Export writer (stream JSON lines)
+
+
+Task 4: UI
+
+DeckListScreen
+
+DeckDetailScreen
+
+AddImportScreen (single text area + preview + import summary)
+
+StudyScreen (front/back toggle, Again/Good)
+
+SettingsScreen (interval/EF params)
+
+
+Task 5: GitHub Actions
+
+Add .github/workflows/android-debug-apk.yml
+
+Ensure artifact upload path matches actual output
+
+
+Task 6: Polish
+
+Empty states
+
+Basic search (optional)
+
+Performance sanity (paging不要。MVPはシンプルに)
+
+
