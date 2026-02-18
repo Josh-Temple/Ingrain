@@ -321,4 +321,11 @@ Basic search (optional)
 
 Performance sanity (paging不要。MVPはシンプルに)
 
+---
+
+## 次回セッションへの引き継ぎ項目
+- GitHub Actionsで `Android Debug APK` workflow を1回実行し、`ingrain-debug-apk` artifact が実際に生成されることを確認する。
+- Import/Export系（JSON Linesの異常入力、SAFファイルI/O失敗時）のテストを追加し、防御的実装の回帰を防ぐ。
+- UIを画面別ファイルへさらに分割（`Screens.kt` の分離）し、保守しやすい構成にする。
+- READMEのDefinition of Doneに対するチェックリストをIssue化し、完了証跡（スクリーンショット/ログ）を残す。
 
