@@ -1,0 +1,2 @@
+{"deck":"<デッキ名>","front":"<表面の問題文>","back":"<裏面の答え>","tags":["<タグ1>","<タグ2>"]}
+{"deck":"<デッキ名>","front":"<表面の問題文>","back":"<裏面の答え>","due_at":1700000000000,"interval_days":1.0,"ease_factor":2.5,"repetitions":0,"lapses":0}
