@@ -44,10 +44,48 @@ jobs:
             echo "missing=true" >> "$GITHUB_OUTPUT"
             echo "Missing debug signing secrets. Building with ephemeral debug key instead." >&2
             echo "Set DEBUG_KEYSTORE_BASE64 / DEBUG_KEYSTORE_PASSWORD / DEBUG_KEY_ALIAS / DEBUG_KEY_PASSWORD to generate an updatable APK." >&2
+
+            if [ "$ALLOW_EPHEMERAL_SIGNING" != "true" ]; then
+              echo "Ephemeral signing is disabled. Failing the workflow to avoid publishing a non-updatable APK." >&2
+              exit 1
+            fi
+
             exit 0
           fi
 
-          echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/debug.keystore"
+          python - <<'PYTHON'
+          import base64
+          import os
+          import re
+          import sys
+          from pathlib import Path
+
+          encoded = os.environ["DEBUG_KEYSTORE_BASE64"]
+          output = Path(os.environ["RUNNER_TEMP"]) / "debug.keystore"
+
+          candidates = [
+              encoded.strip(),
+              re.sub(r"\s+", "", encoded),
+              re.sub(r"\s+", "", encoded).replace("-", "+").replace("_", "/"),
+          ]
+
+          for value in candidates:
+              if not value:
+                  continue
+
+              padded = value + ("=" * ((4 - len(value) % 4) % 4))
+
+              try:
+                  data = base64.b64decode(padded, validate=True)
+              except Exception:
+                  continue
+
+              output.write_bytes(data)
+              sys.exit(0)
+
+          print("Failed to decode DEBUG_KEYSTORE_BASE64. Re-create the secret from the .jks file using base64 without extra formatting.", file=sys.stderr)
+          sys.exit(1)
+          PYTHON
 
           echo "SIGNING_READY=true" >> "$GITHUB_ENV"
           echo "missing=false" >> "$GITHUB_OUTPUT"
@@ -82,6 +120,7 @@ jobs:
             --stacktrace
 
       - name: Upload APK artifact
+        if: env.SIGNING_READY == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ingrain-debug-apk
