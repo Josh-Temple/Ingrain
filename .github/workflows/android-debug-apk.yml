@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
+    inputs:
+      allow_ephemeral_signing:
+        description: "Allow fallback debug signing when DEBUG_KEY* secrets are missing (fresh install only)"
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   build:
@@ -13,6 +19,7 @@ jobs:
     env:
       VERSION_CODE: ${{ github.run_number }}
       VERSION_NAME: 1.0.${{ github.run_number }}
+      ALLOW_EPHEMERAL_SIGNING: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_ephemeral_signing || false }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -78,4 +85,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ingrain-debug-apk
+          path: "**/build/outputs/apk/debug/*.apk"
+
+      - name: Upload APK artifact (fresh-install only)
+        if: env.SIGNING_READY != 'true' && env.ALLOW_EPHEMERAL_SIGNING == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ingrain-debug-apk-fresh-install-only
           path: "**/build/outputs/apk/debug/*.apk"
