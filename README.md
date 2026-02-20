@@ -190,17 +190,44 @@ jobs:
           java-version: "17"
           cache: gradle
 
+      - name: Restore fixed debug keystore
+        run: |
+          echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/debug.keystore"
+
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      - name: Build Debug APK
-        run: ./gradlew :app:assembleDebug
+      - name: Build Debug APK (updatable)
+        run: |
+          ./gradlew :app:assembleDebug \
+            -Pandroid.injected.version.code="${{ github.run_number }}" \
+            -Pandroid.injected.version.name="1.0.${{ github.run_number }}" \
+            -Pandroid.injected.signing.store.file="$RUNNER_TEMP/debug.keystore" \
+            -Pandroid.injected.signing.store.password="${{ secrets.DEBUG_KEYSTORE_PASSWORD }}" \
+            -Pandroid.injected.signing.key.alias="${{ secrets.DEBUG_KEY_ALIAS }}" \
+            -Pandroid.injected.signing.key.password="${{ secrets.DEBUG_KEY_PASSWORD }}"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: ingrain-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+
+
+### APK更新が失敗する時の原因と対策
+CIで作るdebug APKは、**毎回同じ署名鍵**と**単調増加するversionCode**でないと上書きインストールできません。
+
+上のworkflowは次を満たします：
+- `github.run_number` を `versionCode` に使う（毎回増える）
+- `DEBUG_KEYSTORE_BASE64` などのSecretsで固定keystoreを復元して署名する（毎回同じ署名）
+
+必要なSecrets（Repository settings → Secrets and variables → Actions）：
+- `DEBUG_KEYSTORE_BASE64`
+- `DEBUG_KEYSTORE_PASSWORD`
+- `DEBUG_KEY_ALIAS`
+- `DEBUG_KEY_PASSWORD`
+
+> 以前のAPKと署名鍵が違う状態で入っている場合は、一度アンインストールしてから入れ直してください。
 
 Step 2: Download APK
 
