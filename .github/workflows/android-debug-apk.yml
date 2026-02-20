@@ -44,6 +44,12 @@ jobs:
             echo "missing=true" >> "$GITHUB_OUTPUT"
             echo "Missing debug signing secrets. Building with ephemeral debug key instead." >&2
             echo "Set DEBUG_KEYSTORE_BASE64 / DEBUG_KEYSTORE_PASSWORD / DEBUG_KEY_ALIAS / DEBUG_KEY_PASSWORD to generate an updatable APK." >&2
+
+            if [ "$ALLOW_EPHEMERAL_SIGNING" != "true" ]; then
+              echo "Ephemeral signing is disabled. Failing the workflow to avoid publishing a non-updatable APK." >&2
+              exit 1
+            fi
+
             exit 0
           fi
 
@@ -82,6 +88,7 @@ jobs:
             --stacktrace
 
       - name: Upload APK artifact
+        if: env.SIGNING_READY == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ingrain-debug-apk
