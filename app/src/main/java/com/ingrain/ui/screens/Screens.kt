@@ -67,6 +67,7 @@ import com.ingrain.scheduler.SchedulerSettings
 import com.ingrain.scheduler.SchedulerSettingsStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 
 data class AddPreset(val name: String, val front: String, val back: String, val tags: String)
 
@@ -106,6 +107,13 @@ private data class ManualAddDraft(
 )
 
 private fun parseTags(raw: String): List<String> = raw.split(",").map { it.trim() }.filter { it.isNotBlank() }
+
+private val screenJson = Json { ignoreUnknownKeys = true }
+
+private fun CardEntity.primaryTag(): String {
+    val tags = runCatching { screenJson.decodeFromString<List<String>>(tagsJson) }.getOrDefault(emptyList())
+    return tags.firstOrNull()?.uppercase() ?: "STUDY"
+}
 
 private fun jsonTemplate(deckName: String, front: String, back: String, tags: String): String {
     val tagList = parseTags(tags).joinToString(",") { "\"$it\"" }
@@ -614,7 +622,7 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
                     )
                 } else {
                     Text(
-                        text = currentCard.tags.firstOrNull()?.uppercase() ?: "STUDY",
+                        text = currentCard.primaryTag(),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
