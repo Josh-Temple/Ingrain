@@ -147,39 +147,71 @@ fun DeckListScreen(repo: IngrainRepository, onOpenDeck: (Long) -> Unit, onGlobal
         Column(
             Modifier
                 .padding(p)
-                .padding(16.dp)
+                .padding(horizontal = 20.dp, vertical = 12.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            SurfaceCard {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text("Decks", style = MaterialTheme.typography.headlineSmall)
-                Button(onClick = onGlobalAdd, modifier = Modifier.fillMaxWidth()) {
-                    Text("Add Card")
-                }
+                TextButton(onClick = onGlobalAdd) { Text("Add Card") }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("New deck name") },
-                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("New deck") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
                 )
-                Button(onClick = {
+                TextButton(onClick = {
                     scope.launch {
                         error = repo.createDeck(name).exceptionOrNull()?.message
                         if (error == null) name = ""
                     }
                 }) {
-                    Text("Create Deck")
+                    Text("Create")
                 }
-                if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
+            }
+            if (error != null) {
+                Text(
+                    text = error!!,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
             }
 
-            decks.forEach { deck ->
-                SurfaceCard {
-                    Text(deck.name, style = MaterialTheme.typography.titleLarge)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { onOpenDeck(deck.id) }) { Text("Open") }
-                        TextButton(onClick = { scope.launch { repo.deleteDeck(deck.id) } }) { Text("Delete") }
+            HorizontalDivider()
+
+            if (decks.isEmpty()) {
+                Text(
+                    text = "No decks yet",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                decks.forEachIndexed { index, deck ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TextButton(onClick = { onOpenDeck(deck.id) }) {
+                            Text(deck.name, style = MaterialTheme.typography.titleMedium)
+                        }
+                        TextButton(onClick = { scope.launch { repo.deleteDeck(deck.id) } }) {
+                            Text("Delete", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
+                    if (index < decks.lastIndex) HorizontalDivider()
                 }
             }
         }
