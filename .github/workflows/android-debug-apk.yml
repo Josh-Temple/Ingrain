@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
+    inputs:
+      allow_ephemeral_signing:
+        description: "Allow fallback debug signing when DEBUG_KEY* secrets are missing (fresh install only)"
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   build:
@@ -13,6 +19,7 @@ jobs:
     env:
       VERSION_CODE: ${{ github.run_number }}
       VERSION_NAME: 1.0.${{ github.run_number }}
+      ALLOW_EPHEMERAL_SIGNING: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_ephemeral_signing || false }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,14 +39,22 @@ jobs:
           DEBUG_KEY_PASSWORD: ${{ secrets.DEBUG_KEY_PASSWORD }}
         run: |
           if [ -z "$DEBUG_KEYSTORE_BASE64" ] || [ -z "$DEBUG_KEYSTORE_PASSWORD" ] || [ -z "$DEBUG_KEY_ALIAS" ] || [ -z "$DEBUG_KEY_PASSWORD" ]; then
+            if [ "$ALLOW_EPHEMERAL_SIGNING" = "true" ]; then
+              echo "SIGNING_READY=false" >> "$GITHUB_ENV"
+              echo "Missing debug signing secrets. Ephemeral debug signing is enabled for this manual run (fresh install only)." >&2
+              exit 0
+            fi
+
             echo "Missing required debug signing secrets." >&2
             echo "Set DEBUG_KEYSTORE_BASE64 / DEBUG_KEYSTORE_PASSWORD / DEBUG_KEY_ALIAS / DEBUG_KEY_PASSWORD in repository secrets." >&2
-            echo "Without a fixed keystore, APK signature changes and in-place update install fails." >&2
+            echo "Without a fixed keystore, APK update install fails." >&2
+            echo "If you really need a one-off fresh-install APK, run workflow_dispatch with allow_ephemeral_signing=true." >&2
             exit 1
           fi
 
           echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/debug.keystore"
 
+          echo "SIGNING_READY=true" >> "$GITHUB_ENV"
           echo "DEBUG_KEYSTORE_FILE=$RUNNER_TEMP/debug.keystore" >> "$GITHUB_ENV"
           echo "DEBUG_KEYSTORE_PASSWORD=$DEBUG_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
           echo "DEBUG_KEY_ALIAS=$DEBUG_KEY_ALIAS" >> "$GITHUB_ENV"
@@ -49,7 +64,8 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      - name: Build Debug APK (updatable)
+      - name: Build Debug APK (fixed keystore)
+        if: env.SIGNING_READY == 'true'
         run: |
           ./gradlew :app:assembleDebug \
             -Pandroid.injected.version.code="$VERSION_CODE" \
@@ -61,8 +77,24 @@ jobs:
             -Pandroid.injected.signing.key.password="$DEBUG_KEY_PASSWORD" \
             --stacktrace
 
-      - name: Upload APK artifact
+      - name: Build Debug APK (ephemeral keystore)
+        if: env.SIGNING_READY != 'true' && env.ALLOW_EPHEMERAL_SIGNING == 'true'
+        run: |
+          ./gradlew :app:assembleDebug \
+            -Pandroid.injected.version.code="$VERSION_CODE" \
+            -Pandroid.injected.version.name="$VERSION_NAME" \
+            --stacktrace
+
+      - name: Upload APK artifact (updatable)
+        if: env.SIGNING_READY == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ingrain-debug-apk
+          path: "**/build/outputs/apk/debug/*.apk"
+
+      - name: Upload APK artifact (fresh-install only)
+        if: env.SIGNING_READY != 'true' && env.ALLOW_EPHEMERAL_SIGNING == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ingrain-debug-apk-fresh-install-only
           path: "**/build/outputs/apk/debug/*.apk"
