@@ -31,25 +31,19 @@ jobs:
           DEBUG_KEY_ALIAS: ${{ secrets.DEBUG_KEY_ALIAS }}
           DEBUG_KEY_PASSWORD: ${{ secrets.DEBUG_KEY_PASSWORD }}
         run: |
-          if [ -n "$DEBUG_KEYSTORE_BASE64" ]; then
-            echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/debug.keystore"
-          else
-            keytool -genkeypair \
-              -keystore "$RUNNER_TEMP/debug.keystore" \
-              -storetype JKS \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -dname "CN=Android Debug,O=Android,C=US" \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000
+          if [ -z "$DEBUG_KEYSTORE_BASE64" ] || [ -z "$DEBUG_KEYSTORE_PASSWORD" ] || [ -z "$DEBUG_KEY_ALIAS" ] || [ -z "$DEBUG_KEY_PASSWORD" ]; then
+            echo "Missing required debug signing secrets." >&2
+            echo "Set DEBUG_KEYSTORE_BASE64 / DEBUG_KEYSTORE_PASSWORD / DEBUG_KEY_ALIAS / DEBUG_KEY_PASSWORD in repository secrets." >&2
+            echo "Without a fixed keystore, APK signature changes and in-place update install fails." >&2
+            exit 1
           fi
 
+          echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/debug.keystore"
+
           echo "DEBUG_KEYSTORE_FILE=$RUNNER_TEMP/debug.keystore" >> "$GITHUB_ENV"
-          echo "DEBUG_KEYSTORE_PASSWORD=${DEBUG_KEYSTORE_PASSWORD:-android}" >> "$GITHUB_ENV"
-          echo "DEBUG_KEY_ALIAS=${DEBUG_KEY_ALIAS:-androiddebugkey}" >> "$GITHUB_ENV"
-          echo "DEBUG_KEY_PASSWORD=${DEBUG_KEY_PASSWORD:-android}" >> "$GITHUB_ENV"
+          echo "DEBUG_KEYSTORE_PASSWORD=$DEBUG_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "DEBUG_KEY_ALIAS=$DEBUG_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "DEBUG_KEY_PASSWORD=$DEBUG_KEY_PASSWORD" >> "$GITHUB_ENV"
           echo "DEBUG_KEYSTORE_TYPE=JKS" >> "$GITHUB_ENV"
 
       - name: Grant execute permission for gradlew

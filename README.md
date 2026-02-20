@@ -227,6 +227,9 @@ CIで作るdebug APKは、**毎回同じ署名鍵**と**単調増加するversio
 - `DEBUG_KEY_ALIAS`
 - `DEBUG_KEY_PASSWORD`
 
+> 現在のworkflowは、上記Secretsのどれか1つでも未設定なら**意図的にビルドを失敗**させます（Fail Fast）。
+> 理由：未設定時に別鍵で署名されたAPKを出してしまうと、既存インストール済みアプリへの上書き更新が失敗するためです。
+
 > 以前のAPKと署名鍵が違う状態で入っている場合は、一度アンインストールしてから入れ直してください。
 
 Step 2: Download APK
