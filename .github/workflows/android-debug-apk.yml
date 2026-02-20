@@ -63,11 +63,20 @@ jobs:
           encoded = os.environ["DEBUG_KEYSTORE_BASE64"]
           output = Path(os.environ["RUNNER_TEMP"]) / "debug.keystore"
 
-          candidates = [
+          compact = re.sub(r"\s+", "", encoded)
+          candidates = {
               encoded.strip(),
-              re.sub(r"\s+", "", encoded),
-              re.sub(r"\s+", "", encoded).replace("-", "+").replace("_", "/"),
-          ]
+              compact,
+              compact.replace("-", "+").replace("_", "/"),
+              compact.strip('"\''),
+              compact.strip('"\'').replace("-", "+").replace("_", "/"),
+              compact.replace("\\n", "").replace("\\r", ""),
+          }
+
+          if "base64," in compact:
+              data_url_value = compact.split("base64,", 1)[1]
+              candidates.add(data_url_value)
+              candidates.add(data_url_value.replace("-", "+").replace("_", "/"))
 
           for value in candidates:
               if not value:
@@ -84,6 +93,7 @@ jobs:
               sys.exit(0)
 
           print("Failed to decode DEBUG_KEYSTORE_BASE64. Re-create the secret from the .jks file using base64 without extra formatting.", file=sys.stderr)
+          print("Recommended command: base64 -w 0 debug.keystore", file=sys.stderr)
           sys.exit(1)
           PYTHON
 
