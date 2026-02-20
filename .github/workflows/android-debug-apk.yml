@@ -10,6 +10,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      VERSION_CODE: ${{ github.run_number }}
+      VERSION_NAME: 1.0.${{ github.run_number }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,11 +24,23 @@ jobs:
           java-version: "17"
           cache: gradle
 
+      - name: Restore fixed debug keystore
+        run: |
+          echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/debug.keystore"
+
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      - name: Build Debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace
+      - name: Build Debug APK (updatable)
+        run: |
+          ./gradlew :app:assembleDebug \
+            -Pandroid.injected.version.code="$VERSION_CODE" \
+            -Pandroid.injected.version.name="$VERSION_NAME" \
+            -Pandroid.injected.signing.store.file="$RUNNER_TEMP/debug.keystore" \
+            -Pandroid.injected.signing.store.password="${{ secrets.DEBUG_KEYSTORE_PASSWORD }}" \
+            -Pandroid.injected.signing.key.alias="${{ secrets.DEBUG_KEY_ALIAS }}" \
+            -Pandroid.injected.signing.key.password="${{ secrets.DEBUG_KEY_PASSWORD }}" \
+            --stacktrace
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
