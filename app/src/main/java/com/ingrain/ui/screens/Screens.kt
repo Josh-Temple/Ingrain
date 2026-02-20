@@ -17,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -57,10 +58,32 @@ import kotlinx.coroutines.launch
 data class AddPreset(val name: String, val front: String, val back: String, val tags: String)
 
 private val addTemplates = listOf(
-    AddPreset("基本", "質問", "回答", ""),
-    AddPreset("例文", "単語", "意味 + 例文", "vocab"),
-    AddPreset("穴埋め", "{{c1::重要語}} を含む文", "補足説明", "cloze"),
+    AddPreset("Basic", "Term or Question", "Definition or Answer", ""),
+    AddPreset("Example", "Word", "Meaning + Example Sentence", "vocab"),
+    AddPreset("Cloze", "Sentence with {{c1::key term}}", "Extra explanation", "cloze"),
 )
+
+private const val RatingAgain = "AGAIN"
+private const val RatingGood = "GOOD"
+
+private fun endOfDayMillis(nowMillis: Long): Long {
+    val zoneId = java.time.ZoneId.systemDefault()
+    return java.time.Instant.ofEpochMilli(nowMillis)
+        .atZone(zoneId)
+        .toLocalDate()
+        .plusDays(1)
+        .atStartOfDay(zoneId)
+        .toInstant()
+        .toEpochMilli() - 1
+}
+
+@Composable
+private fun SectionHeading(text: String, primary: Boolean = false) {
+    Text(
+        text = text,
+        color = if (primary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
 
 private data class ManualAddDraft(
     val deckName: String,
@@ -76,6 +99,19 @@ private fun jsonTemplate(deckName: String, front: String, back: String, tags: St
     return """{"deck":"$deckName","front":"$front","back":"$back","tags":[$tagList]}"""
 }
 
+@Composable
+private fun SurfaceCard(content: @Composable () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) { content() }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeckListScreen(repo: IngrainRepository, onOpenDeck: (Long) -> Unit, onGlobalAdd: () -> Unit) {
@@ -86,42 +122,42 @@ fun DeckListScreen(repo: IngrainRepository, onOpenDeck: (Long) -> Unit, onGlobal
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Decks") }) }) { p ->
+    Scaffold(topBar = { TopAppBar(title = { Text("Ingrain") }) }) { p ->
         Column(
             Modifier
                 .padding(p)
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Button(onClick = onGlobalAdd, modifier = Modifier.fillMaxWidth()) {
-                Text("Add card (all decks)")
-            }
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("New deck name") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Button(onClick = {
-                scope.launch {
-                    error = repo.createDeck(name).exceptionOrNull()?.message
-                    if (error == null) name = ""
+            SurfaceCard {
+                Text("Decks", style = MaterialTheme.typography.headlineSmall)
+                Button(onClick = onGlobalAdd, modifier = Modifier.fillMaxWidth()) {
+                    Text("Add Card")
                 }
-            }) {
-                Text("Create")
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("New deck name") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Button(onClick = {
+                    scope.launch {
+                        error = repo.createDeck(name).exceptionOrNull()?.message
+                        if (error == null) name = ""
+                    }
+                }) {
+                    Text("Create Deck")
+                }
+                if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
             }
-            if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
+
             decks.forEach { deck ->
-                Card(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(deck.name)
-                        Row {
-                            TextButton(onClick = { onOpenDeck(deck.id) }) { Text("Open") }
-                            TextButton(onClick = { scope.launch { repo.deleteDeck(deck.id) } }) { Text("Delete") }
-                        }
+                SurfaceCard {
+                    Text(deck.name, style = MaterialTheme.typography.titleLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { onOpenDeck(deck.id) }) { Text("Open") }
+                        TextButton(onClick = { scope.launch { repo.deleteDeck(deck.id) } }) { Text("Delete") }
                     }
                 }
             }
@@ -145,24 +181,34 @@ fun DeckDetailScreen(
     var message by remember { mutableStateOf<String?>(null) }
 
     Scaffold(topBar = { TopAppBar(title = { Text(deck?.name ?: "Deck") }) }) { p ->
-        Column(Modifier.padding(p).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                value = rename,
-                onValueChange = { rename = it },
-                label = { Text("Deck name") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Button(onClick = {
-                val current = deck ?: return@Button
-                scope.launch {
-                    message = repo.renameDeck(current, rename).exceptionOrNull()?.message ?: "Renamed"
-                }
-            }) { Text("Rename") }
-            Button(onClick = onStudy) { Text("Study") }
-            Button(onClick = onImport) { Text("Add & Import") }
-            Button(onClick = onSettings) { Text("Settings") }
-            Button(onClick = onBackup) { Text("Export / Import file") }
-            if (message != null) Text(message!!)
+        Column(
+            Modifier.padding(p).padding(16.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            SurfaceCard {
+                Text("Deck setup", style = MaterialTheme.typography.titleMedium)
+                OutlinedTextField(
+                    value = rename,
+                    onValueChange = { rename = it },
+                    label = { Text("Deck name") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Button(onClick = {
+                    val current = deck ?: return@Button
+                    scope.launch {
+                        message = repo.renameDeck(current, rename).exceptionOrNull()?.message ?: "Deck renamed"
+                    }
+                }) { Text("Rename") }
+                if (message != null) Text(message!!)
+            }
+
+            SurfaceCard {
+                Text("Actions", style = MaterialTheme.typography.titleMedium)
+                Button(onClick = onStudy, modifier = Modifier.fillMaxWidth()) { Text("Study") }
+                Button(onClick = onImport, modifier = Modifier.fillMaxWidth()) { Text("Add Cards") }
+                Button(onClick = onSettings, modifier = Modifier.fillMaxWidth()) { Text("Scheduler Settings") }
+                TextButton(onClick = onBackup, modifier = Modifier.fillMaxWidth()) { Text("Backup & Restore") }
+            }
         }
     }
 }
@@ -192,6 +238,13 @@ fun ImportScreen(deckId: Long?, repo: IngrainRepository) {
     val recentPresets = remember { mutableStateListOf<AddPreset>() }
     var duplicateHint by remember { mutableStateOf<String?>(null) }
 
+    fun clearDraft(preserveTags: Boolean, preserveDeck: Boolean) {
+        front = ""
+        back = ""
+        if (!preserveTags) tags = ""
+        if (!preserveDeck && fixedDeck == null) deckName = ""
+    }
+
     suspend fun submitCard() {
         val now = System.currentTimeMillis()
         val targetDeck = fixedDeck?.name ?: deckName.trim()
@@ -214,10 +267,10 @@ fun ImportScreen(deckId: Long?, repo: IngrainRepository) {
                 recentPresets.add(0, used)
                 if (recentPresets.size > 5) recentPresets.removeAt(recentPresets.lastIndex)
             }
-            front = ""
-            back = ""
-            if (!continuousMode) tags = ""
-            if (!continuousMode || !keepDeckInContinuous) deckName = ""
+            clearDraft(
+                preserveTags = continuousMode,
+                preserveDeck = continuousMode && keepDeckInContinuous,
+            )
         }.onFailure {
             message = it.message ?: "Add failed"
         }
@@ -231,7 +284,7 @@ fun ImportScreen(deckId: Long?, repo: IngrainRepository) {
         if (targetDeck.isBlank() || trimmedFront.isBlank() || trimmedBack.isBlank()) return@LaunchedEffect
         val deck = repo.findDeckByName(targetDeck) ?: return@LaunchedEffect
         if (repo.cardExists(deck.id, trimmedFront, trimmedBack)) {
-            duplicateHint = "同一カードが既に存在します（保存はスキップされます）"
+            duplicateHint = "The same card already exists (save will be skipped)."
         }
     }
 
@@ -280,8 +333,9 @@ fun ImportScreen(deckId: Long?, repo: IngrainRepository) {
                         tags = tags,
                     )
                     clipboard?.setPrimaryClip(ClipData.newPlainText("template", template))
-                    message = "テンプレートをクリップボードへコピーしました"
+                    message = "Template copied to clipboard"
                 },
+                onCancel = { clearDraft(preserveTags = false, preserveDeck = false) },
                 onSave = { scope.launch { submitCard() } },
             )
 
@@ -321,21 +375,26 @@ private fun ManualAddSection(
     duplicateHint: String?,
     recentPresets: List<AddPreset>,
     onCopyTemplate: () -> Unit,
+    onCancel: () -> Unit,
     onSave: () -> Unit,
 ) {
-    Text(if (fixedDeck != null) "追加先: ${fixedDeck.name}" else "全デッキ追加モード")
+    Text(if (fixedDeck != null) "Target deck: ${fixedDeck.name}" else "Global add mode")
 
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilterChip(selected = simpleMode, onClick = { onSimpleModeChange(true) }, label = { Text("かんたん") })
-        FilterChip(selected = !simpleMode, onClick = { onSimpleModeChange(false) }, label = { Text("詳細") })
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        TextButton(onClick = onCancel) { Text("Cancel") }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected = simpleMode, onClick = { onSimpleModeChange(true) }, label = { Text("Simple") })
+            FilterChip(selected = !simpleMode, onClick = { onSimpleModeChange(false) }, label = { Text("Detailed") })
+        }
     }
 
     if (fixedDeck == null) {
         OutlinedTextField(
             value = draft.deckName,
             onValueChange = { onDraftChange(draft.copy(deckName = it)) },
-            label = { Text("Deck name (required)") },
+            label = { Text("Deck") },
             modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("BIOLOGY 101") },
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             decks.take(3).forEach {
@@ -344,17 +403,20 @@ private fun ManualAddSection(
         }
     }
 
+    SectionHeading("FRONT SIDE", primary = true)
     OutlinedTextField(
         value = draft.front,
         onValueChange = { onDraftChange(draft.copy(front = it)) },
-        label = { Text("Front") },
+        label = { Text("Term or Question") },
         modifier = Modifier.fillMaxWidth(),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
     )
+
+    SectionHeading("BACK SIDE")
     OutlinedTextField(
         value = draft.back,
         onValueChange = { onDraftChange(draft.copy(back = it)) },
-        label = { Text("Back") },
+        label = { Text("Definition or Answer") },
         modifier = Modifier.fillMaxWidth(),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { onSave() }),
@@ -369,6 +431,11 @@ private fun ManualAddSection(
         )
     }
 
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(onClick = { }) { Text("Add Tag") }
+        Button(onClick = { }) { Text("Record Audio") }
+    }
+
     if (duplicateHint != null) {
         Text(duplicateHint, color = MaterialTheme.colorScheme.error)
     }
@@ -381,18 +448,18 @@ private fun ManualAddSection(
     )
 
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("連続追加")
+        Text("Continuous mode")
         Switch(checked = continuousMode, onCheckedChange = onContinuousModeChange)
         if (fixedDeck == null) {
-            Text("デッキ保持")
+            Text("Keep deck")
             Switch(checked = keepDeckInContinuous, onCheckedChange = onKeepDeckInContinuousChange)
         }
     }
 
-    Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) { Text("保存 (Ctrl+Enter)") }
+    Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) { Text("Save Card (Ctrl+Enter)") }
 
     if (recentPresets.isNotEmpty()) {
-        Text("最近使った入力")
+        Text("Recent inputs")
         recentPresets.forEachIndexed { idx, preset ->
             TextButton(onClick = {
                 onDraftChange(draft.copy(front = preset.front, back = preset.back, tags = preset.tags))
@@ -410,7 +477,7 @@ private fun TemplateSection(
     onDraftChange: (ManualAddDraft) -> Unit,
     onCopyTemplate: () -> Unit,
 ) {
-    Text("テンプレート")
+    Text("Templates")
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         addTemplates.forEach { preset ->
             TextButton(onClick = {
@@ -421,13 +488,13 @@ private fun TemplateSection(
     }
 
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = onCopyTemplate) { Text("テンプレをコピー") }
+        Button(onClick = onCopyTemplate) { Text("Copy template") }
         Button(onClick = {
             val default = addTemplates.first()
             val updatedTags = if (simpleMode) draft.tags else default.tags
             onDraftChange(draft.copy(front = default.front, back = default.back, tags = updatedTags))
         }) {
-            Text("フォームへ挿入")
+            Text("Insert into form")
         }
     }
 }
@@ -440,7 +507,7 @@ private fun BulkImportSection(
     onPreview: () -> Unit,
     onImport: () -> Unit,
 ) {
-    Text("JSON Lines 一括追加")
+    Text("Bulk add with JSON Lines")
     OutlinedTextField(
         value = bulkText,
         onValueChange = onBulkTextChange,
@@ -467,44 +534,76 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
     var card by remember { mutableStateOf<CardEntity?>(null) }
     var showAnswer by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
+    var remainingToday by remember { mutableStateOf(0) }
 
     suspend fun loadDueCard() {
-        card = repo.nextDueCard(deckId, System.currentTimeMillis())
+        val now = System.currentTimeMillis()
+        card = repo.nextDueCard(deckId, now)
+        remainingToday = repo.countDueUntil(deckId, endOfDayMillis(now))
         showAnswer = false
-        if (card == null) message = "No due cards"
+        if (card == null) message = "You're done for today"
+    }
+
+    suspend fun submitReview(currentCard: CardEntity, rating: String) {
+        val settings = settingsStore.settings.first()
+        repo.review(currentCard, rating, settings, System.currentTimeMillis())
+        loadDueCard()
     }
 
     LaunchedEffect(deckId) { loadDueCard() }
 
     Scaffold(topBar = { TopAppBar(title = { Text("Study") }) }) { p ->
-        Column(Modifier.padding(p).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            val currentCard = card
-            if (currentCard == null) {
-                Text(message)
-            } else {
-                Text("Front: ${currentCard.front}")
-                if (showAnswer) Text("Back: ${currentCard.back}")
-                Button(onClick = { showAnswer = true }) { Text("Show answer") }
-                if (showAnswer) {
-                    Row {
-                        Button(onClick = {
-                            scope.launch {
-                                val settings = settingsStore.settings.first()
-                                repo.review(currentCard, "AGAIN", settings, System.currentTimeMillis())
-                                loadDueCard()
-                            }
-                        }) { Text("Again") }
-                        Button(
-                            onClick = {
-                                scope.launch {
-                                    val settings = settingsStore.settings.first()
-                                    repo.review(currentCard, "GOOD", settings, System.currentTimeMillis())
-                                    loadDueCard()
-                                }
-                            },
-                            modifier = Modifier.padding(start = 8.dp),
-                        ) { Text("Good") }
+        val currentCard = card
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(p)
+                .padding(horizontal = 20.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                Text(
+                    text = "Remaining today",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = "$remainingToday cards",
+                    style = MaterialTheme.typography.headlineMedium,
+                )
+
+                if (currentCard == null) {
+                    Text(message, style = MaterialTheme.typography.titleMedium)
+                } else {
+                    Text(
+                        text = currentCard.front,
+                        style = MaterialTheme.typography.headlineLarge,
+                    )
+
+                    if (showAnswer) {
+                        Text(
+                            text = currentCard.back,
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        Button(onClick = { showAnswer = true }) { Text("Show answer") }
                     }
+                }
+            }
+
+            if (currentCard != null && showAnswer) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Button(
+                        onClick = { scope.launch { submitReview(currentCard, RatingAgain) } },
+                        modifier = Modifier.weight(1f),
+                    ) { Text("Again") }
+                    Button(
+                        onClick = { scope.launch { submitReview(currentCard, RatingGood) } },
+                        modifier = Modifier.weight(1f),
+                    ) { Text("Good") }
                 }
             }
         }
@@ -530,36 +629,39 @@ fun SettingsScreen(store: SchedulerSettingsStore) {
     Scaffold(topBar = { TopAppBar(title = { Text("Settings") }) }) { p ->
         Column(
             Modifier.padding(p).padding(16.dp).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            OutlinedTextField(initial, { initial = it }, label = { Text("initial_interval_good_days") })
-            OutlinedTextField(second, { second = it }, label = { Text("second_interval_good_days") })
-            OutlinedTextField(minEase, { minEase = it }, label = { Text("min_ease_factor") })
-            OutlinedTextField(stepGood, { stepGood = it }, label = { Text("ease_factor_step_good") })
-            OutlinedTextField(stepAgain, { stepAgain = it }, label = { Text("ease_factor_step_again") })
-            OutlinedTextField(againDelay, { againDelay = it }, label = { Text("again_delay_minutes") })
-            Button(onClick = {
-                scope.launch {
-                    val parsed = runCatching {
-                        SchedulerSettings(
-                            initialIntervalGoodDays = initial.toDouble(),
-                            secondIntervalGoodDays = second.toDouble(),
-                            minEaseFactor = minEase.toDouble(),
-                            easeFactorStepGood = stepGood.toDouble(),
-                            easeFactorStepAgain = stepAgain.toDouble(),
-                            againDelayMinutes = againDelay.toInt(),
-                        )
-                    }.getOrNull()
+            SurfaceCard {
+                Text("Scheduler tuning", style = MaterialTheme.typography.titleMedium)
+                OutlinedTextField(initial, { initial = it }, label = { Text("Initial interval (days)") })
+                OutlinedTextField(second, { second = it }, label = { Text("Second interval (days)") })
+                OutlinedTextField(minEase, { minEase = it }, label = { Text("Minimum ease factor") })
+                OutlinedTextField(stepGood, { stepGood = it }, label = { Text("Ease step (Good)") })
+                OutlinedTextField(stepAgain, { stepAgain = it }, label = { Text("Ease step (Again)") })
+                OutlinedTextField(againDelay, { againDelay = it }, label = { Text("Again delay (minutes)") })
+                Button(onClick = {
+                    scope.launch {
+                        val parsed = runCatching {
+                            SchedulerSettings(
+                                initialIntervalGoodDays = initial.toDouble(),
+                                secondIntervalGoodDays = second.toDouble(),
+                                minEaseFactor = minEase.toDouble(),
+                                easeFactorStepGood = stepGood.toDouble(),
+                                easeFactorStepAgain = stepAgain.toDouble(),
+                                againDelayMinutes = againDelay.toInt(),
+                            )
+                        }.getOrNull()
 
-                    message = if (parsed == null) {
-                        "Invalid numeric input"
-                    } else {
-                        store.save(parsed)
-                        "Saved"
+                        message = if (parsed == null) {
+                            "Invalid numeric input"
+                        } else {
+                            store.save(parsed)
+                            "Settings saved"
+                        }
                     }
-                }
-            }) { Text("Save") }
-            if (message.isNotBlank()) Text(message)
+                }) { Text("Save") }
+                if (message.isNotBlank()) Text(message)
+            }
         }
     }
 }
@@ -596,7 +698,7 @@ fun BackupScreen(deckId: Long, repo: IngrainRepository) {
                         context.contentResolver.openOutputStream(uri)?.use { output ->
                             output.write(content.toByteArray())
                         }
-                        message = "export done"
+                        message = "Export complete"
                     }
 
                     FileOperation.IMPORT -> {
@@ -605,32 +707,39 @@ fun BackupScreen(deckId: Long, repo: IngrainRepository) {
                             ?.use { it.readText() }
                             .orEmpty()
                         val summary = repo.importParsed(JsonLinesParser.parse(text), System.currentTimeMillis())
-                        message = "import added=${summary.added} skipped=${summary.skipped} failed=${summary.failed}"
+                        message = "Import done: added=${summary.added}, skipped=${summary.skipped}, failed=${summary.failed}"
                     }
                 }
             }.onFailure { error ->
-                message = "file op failed: ${error.message}"
+                message = "File operation failed: ${error.message}"
             }
             pendingUri = null
             pendingOperation = null
         }
     }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Backup / Restore") }) }) { p ->
-        Column(Modifier.padding(p).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = {
-                pendingOperation = FileOperation.EXPORT
-                createLauncher.launch("ingrain-backup.jsonl")
-            }) {
-                Text("Export deck")
+    Scaffold(topBar = { TopAppBar(title = { Text("Backup & Restore") }) }) { p ->
+        Column(
+            Modifier.padding(p).padding(16.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            SurfaceCard {
+                Text("Data portability", style = MaterialTheme.typography.titleMedium)
+                Text("Export your deck or import from a JSONL backup.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Button(onClick = {
+                    pendingOperation = FileOperation.EXPORT
+                    createLauncher.launch("ingrain-backup.jsonl")
+                }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Export deck")
+                }
+                Button(onClick = {
+                    pendingOperation = FileOperation.IMPORT
+                    openLauncher.launch(arrayOf("*/*"))
+                }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Import file")
+                }
+                if (message.isNotBlank()) Text(message)
             }
-            Button(onClick = {
-                pendingOperation = FileOperation.IMPORT
-                openLauncher.launch(arrayOf("*/*"))
-            }) {
-                Text("Import file")
-            }
-            Text(message)
         }
     }
 }
