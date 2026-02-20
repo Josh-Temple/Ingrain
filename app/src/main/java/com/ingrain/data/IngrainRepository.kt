@@ -4,8 +4,6 @@ import com.ingrain.importing.ParseResult
 import com.ingrain.scheduler.Scheduler
 import com.ingrain.scheduler.SchedulerSettings
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -35,6 +33,51 @@ class IngrainRepository(private val db: AppDatabase) {
 
     suspend fun getDeck(id: Long): DeckEntity? = db.deckDao().getById(id)
 
+    suspend fun findDeckByName(name: String): DeckEntity? = db.deckDao().getByName(name.trim())
+
+    suspend fun getOrCreateDeck(name: String, now: Long): DeckEntity {
+        val trimmed = name.trim()
+        require(trimmed.isNotBlank()) { "Deck name cannot be blank" }
+        return db.deckDao().getByName(trimmed) ?: run {
+            val id = db.deckDao().insert(DeckEntity(name = trimmed, createdAt = now, updatedAt = now))
+            db.deckDao().getById(id)!!
+        }
+    }
+
+    suspend fun cardExists(deckId: Long, front: String, back: String): Boolean {
+        return db.cardDao().existsDuplicate(deckId, front, back)
+    }
+
+    suspend fun addCard(
+        deckName: String,
+        front: String,
+        back: String,
+        tags: List<String>,
+        now: Long,
+    ): Result<Boolean> = runCatching {
+        val trimmedFront = front.trim()
+        val trimmedBack = back.trim()
+        require(trimmedFront.isNotBlank()) { "Front is required" }
+        require(trimmedBack.isNotBlank()) { "Back is required" }
+        val deck = getOrCreateDeck(name = deckName, now = now)
+        if (db.cardDao().existsDuplicate(deck.id, trimmedFront, trimmedBack)) {
+            false
+        } else {
+            db.cardDao().insert(
+                CardEntity(
+                    deckId = deck.id,
+                    front = trimmedFront,
+                    back = trimmedBack,
+                    tagsJson = json.encodeToString(tags),
+                    createdAt = now,
+                    updatedAt = now,
+                    dueAt = now,
+                ),
+            )
+            true
+        }
+    }
+
     suspend fun nextDueCard(deckId: Long, now: Long): CardEntity? = db.cardDao().getNextDue(deckId, now)
 
     suspend fun review(card: CardEntity, rating: String, settings: SchedulerSettings, now: Long): CardEntity {
@@ -52,7 +95,7 @@ class IngrainRepository(private val db: AppDatabase) {
                 newIntervalDays = updated.intervalDays,
                 prevEaseFactor = card.easeFactor,
                 newEaseFactor = updated.easeFactor,
-            )
+            ),
         )
         return updated
     }
@@ -67,13 +110,7 @@ class IngrainRepository(private val db: AppDatabase) {
                 is ParseResult.Success -> {
                     val c = result.card
                     try {
-                        val deckName = c.deck.trim()
-                        val deck = db.deckDao().getByName(deckName) ?: run {
-                            val id = db.deckDao().insert(
-                                DeckEntity(name = deckName, createdAt = now, updatedAt = now)
-                            )
-                            db.deckDao().getById(id)!!
-                        }
+                        val deck = getOrCreateDeck(name = c.deck, now = now)
                         if (db.cardDao().existsDuplicate(deck.id, c.front, c.back)) {
                             skipped++
                             continue
@@ -97,7 +134,7 @@ class IngrainRepository(private val db: AppDatabase) {
                                 easeFactor = validEase,
                                 repetitions = validRep,
                                 lapses = validLapses,
-                            )
+                            ),
                         )
                         added++
                     } catch (_: Exception) {
@@ -123,7 +160,7 @@ class IngrainRepository(private val db: AppDatabase) {
                     "ease_factor" to card.easeFactor,
                     "repetitions" to card.repetitions,
                     "lapses" to card.lapses,
-                )
+                ),
             )
         }
     }

@@ -19,6 +19,7 @@ object Routes {
     const val DECKS = "decks"
     const val DETAIL = "detail/{deckId}"
     const val IMPORT = "import/{deckId}"
+    const val IMPORT_GLOBAL = "import-global"
     const val STUDY = "study/{deckId}"
     const val BACKUP = "backup/{deckId}"
     const val SETTINGS = "settings"
@@ -32,6 +33,7 @@ fun IngrainApp(repo: IngrainRepository, settingsStore: SchedulerSettingsStore) {
             DeckListScreen(
                 repo = repo,
                 onOpenDeck = { nav.navigate("detail/$it") },
+                onGlobalAdd = { nav.navigate(Routes.IMPORT_GLOBAL) },
             )
         }
         composable(Routes.DETAIL, arguments = listOf(navArgument("deckId") { type = NavType.LongType })) { entry ->
@@ -46,7 +48,10 @@ fun IngrainApp(repo: IngrainRepository, settingsStore: SchedulerSettingsStore) {
             )
         }
         composable(Routes.IMPORT, arguments = listOf(navArgument("deckId") { type = NavType.LongType })) { entry ->
-            ImportScreen(deckId = entry.arguments?.getLong("deckId") ?: 0L, repo = repo)
+            ImportScreen(deckId = entry.arguments?.getLong("deckId"), repo = repo)
+        }
+        composable(Routes.IMPORT_GLOBAL) {
+            ImportScreen(deckId = null, repo = repo)
         }
         composable(Routes.STUDY, arguments = listOf(navArgument("deckId") { type = NavType.LongType })) { entry ->
             StudyScreen(
