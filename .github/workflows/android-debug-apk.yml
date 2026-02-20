@@ -24,7 +24,8 @@ jobs:
           java-version: "17"
           cache: gradle
 
-      - name: Prepare debug keystore
+      - name: Prepare debug keystore (optional)
+        id: signing
         env:
           DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
           DEBUG_KEYSTORE_PASSWORD: ${{ secrets.DEBUG_KEYSTORE_PASSWORD }}
@@ -32,14 +33,17 @@ jobs:
           DEBUG_KEY_PASSWORD: ${{ secrets.DEBUG_KEY_PASSWORD }}
         run: |
           if [ -z "$DEBUG_KEYSTORE_BASE64" ] || [ -z "$DEBUG_KEYSTORE_PASSWORD" ] || [ -z "$DEBUG_KEY_ALIAS" ] || [ -z "$DEBUG_KEY_PASSWORD" ]; then
-            echo "Missing required debug signing secrets." >&2
-            echo "Set DEBUG_KEYSTORE_BASE64 / DEBUG_KEYSTORE_PASSWORD / DEBUG_KEY_ALIAS / DEBUG_KEY_PASSWORD in repository secrets." >&2
-            echo "Without a fixed keystore, APK signature changes and in-place update install fails." >&2
-            exit 1
+            echo "SIGNING_READY=false" >> "$GITHUB_ENV"
+            echo "missing=true" >> "$GITHUB_OUTPUT"
+            echo "Missing debug signing secrets. Building with ephemeral debug key instead." >&2
+            echo "Set DEBUG_KEYSTORE_BASE64 / DEBUG_KEYSTORE_PASSWORD / DEBUG_KEY_ALIAS / DEBUG_KEY_PASSWORD to generate an updatable APK." >&2
+            exit 0
           fi
 
           echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/debug.keystore"
 
+          echo "SIGNING_READY=true" >> "$GITHUB_ENV"
+          echo "missing=false" >> "$GITHUB_OUTPUT"
           echo "DEBUG_KEYSTORE_FILE=$RUNNER_TEMP/debug.keystore" >> "$GITHUB_ENV"
           echo "DEBUG_KEYSTORE_PASSWORD=$DEBUG_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
           echo "DEBUG_KEY_ALIAS=$DEBUG_KEY_ALIAS" >> "$GITHUB_ENV"
@@ -49,7 +53,8 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      - name: Build Debug APK (updatable)
+      - name: Build Debug APK (fixed keystore)
+        if: env.SIGNING_READY == 'true'
         run: |
           ./gradlew :app:assembleDebug \
             -Pandroid.injected.version.code="$VERSION_CODE" \
@@ -59,6 +64,14 @@ jobs:
             -Pandroid.injected.signing.store.password="$DEBUG_KEYSTORE_PASSWORD" \
             -Pandroid.injected.signing.key.alias="$DEBUG_KEY_ALIAS" \
             -Pandroid.injected.signing.key.password="$DEBUG_KEY_PASSWORD" \
+            --stacktrace
+
+      - name: Build Debug APK (ephemeral keystore)
+        if: env.SIGNING_READY != 'true'
+        run: |
+          ./gradlew :app:assembleDebug \
+            -Pandroid.injected.version.code="$VERSION_CODE" \
+            -Pandroid.injected.version.name="$VERSION_NAME" \
             --stacktrace
 
       - name: Upload APK artifact
