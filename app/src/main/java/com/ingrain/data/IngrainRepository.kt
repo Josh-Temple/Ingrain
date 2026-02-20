@@ -80,6 +80,8 @@ class IngrainRepository(private val db: AppDatabase) {
 
     suspend fun nextDueCard(deckId: Long, now: Long): CardEntity? = db.cardDao().getNextDue(deckId, now)
 
+    suspend fun countDueUntil(deckId: Long, until: Long): Int = db.cardDao().countDueUntil(deckId, until)
+
     suspend fun review(card: CardEntity, rating: String, settings: SchedulerSettings, now: Long): CardEntity {
         val updated = if (rating == "GOOD") Scheduler.scheduleGood(card, now, settings)
         else Scheduler.scheduleAgain(card, now, settings)

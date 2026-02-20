@@ -36,6 +36,9 @@ interface CardDao {
     @Query("SELECT * FROM cards WHERE deck_id=:deckId AND due_at <= :now ORDER BY due_at LIMIT 1")
     suspend fun getNextDue(deckId: Long, now: Long): CardEntity?
 
+    @Query("SELECT COUNT(*) FROM cards WHERE deck_id=:deckId AND due_at <= :until")
+    suspend fun countDueUntil(deckId: Long, until: Long): Int
+
     @Query("SELECT * FROM cards WHERE id=:id")
     suspend fun getById(id: Long): CardEntity?
 
