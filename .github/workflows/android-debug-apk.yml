@@ -65,16 +65,9 @@ jobs:
 
           candidates = [
               encoded.strip(),
-              encoded.replace("\n", "").replace("\r", ""),
               re.sub(r"\s+", "", encoded),
               re.sub(r"\s+", "", encoded).replace("-", "+").replace("_", "/"),
           ]
-
-          filtered = re.sub(r"[^A-Za-z0-9+/=_-]", "", encoded)
-          candidates.extend([
-              filtered,
-              filtered.replace("-", "+").replace("_", "/"),
-          ])
 
           for value in candidates:
               if not value:
@@ -88,12 +81,9 @@ jobs:
                   continue
 
               output.write_bytes(data)
-              if output.stat().st_size < 512:
-                  continue
               sys.exit(0)
 
-          print("Failed to decode DEBUG_KEYSTORE_BASE64. Ensure it is raw base64 of the .jks file (no quotes/json).", file=sys.stderr)
-          print("Example: base64 -w 0 ingrain-debug.jks > keystore.b64", file=sys.stderr)
+          print("Failed to decode DEBUG_KEYSTORE_BASE64. Re-create the secret from the .jks file using base64 without extra formatting.", file=sys.stderr)
           sys.exit(1)
           PYTHON
 
