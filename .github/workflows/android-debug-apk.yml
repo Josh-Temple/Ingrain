@@ -24,9 +24,33 @@ jobs:
           java-version: "17"
           cache: gradle
 
-      - name: Restore fixed debug keystore
+      - name: Prepare debug keystore
+        env:
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+          DEBUG_KEYSTORE_PASSWORD: ${{ secrets.DEBUG_KEYSTORE_PASSWORD }}
+          DEBUG_KEY_ALIAS: ${{ secrets.DEBUG_KEY_ALIAS }}
+          DEBUG_KEY_PASSWORD: ${{ secrets.DEBUG_KEY_PASSWORD }}
         run: |
-          echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/debug.keystore"
+          if [ -n "$DEBUG_KEYSTORE_BASE64" ]; then
+            echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/debug.keystore"
+          else
+            keytool -genkeypair \
+              -keystore "$RUNNER_TEMP/debug.keystore" \
+              -storetype JKS \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -dname "CN=Android Debug,O=Android,C=US" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000
+          fi
+
+          echo "DEBUG_KEYSTORE_FILE=$RUNNER_TEMP/debug.keystore" >> "$GITHUB_ENV"
+          echo "DEBUG_KEYSTORE_PASSWORD=${DEBUG_KEYSTORE_PASSWORD:-android}" >> "$GITHUB_ENV"
+          echo "DEBUG_KEY_ALIAS=${DEBUG_KEY_ALIAS:-androiddebugkey}" >> "$GITHUB_ENV"
+          echo "DEBUG_KEY_PASSWORD=${DEBUG_KEY_PASSWORD:-android}" >> "$GITHUB_ENV"
+          echo "DEBUG_KEYSTORE_TYPE=JKS" >> "$GITHUB_ENV"
 
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
@@ -36,10 +60,11 @@ jobs:
           ./gradlew :app:assembleDebug \
             -Pandroid.injected.version.code="$VERSION_CODE" \
             -Pandroid.injected.version.name="$VERSION_NAME" \
-            -Pandroid.injected.signing.store.file="$RUNNER_TEMP/debug.keystore" \
-            -Pandroid.injected.signing.store.password="${{ secrets.DEBUG_KEYSTORE_PASSWORD }}" \
-            -Pandroid.injected.signing.key.alias="${{ secrets.DEBUG_KEY_ALIAS }}" \
-            -Pandroid.injected.signing.key.password="${{ secrets.DEBUG_KEY_PASSWORD }}" \
+            -Pandroid.injected.signing.store.file="$DEBUG_KEYSTORE_FILE" \
+            -Pandroid.injected.signing.store.type="$DEBUG_KEYSTORE_TYPE" \
+            -Pandroid.injected.signing.store.password="$DEBUG_KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$DEBUG_KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$DEBUG_KEY_PASSWORD" \
             --stacktrace
 
       - name: Upload APK artifact
