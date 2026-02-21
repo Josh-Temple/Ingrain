@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Button
@@ -887,14 +888,28 @@ fun StudyScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(p)
-                .padding(horizontal = 16.dp, vertical = 20.dp),
+                .padding(horizontal = 16.dp, vertical = 20.dp)
+                .pointerInput(currentCard?.id, showAnswer) {
+                    if (currentCard != null && !showAnswer) {
+                        detectTapGestures { showAnswer = true }
+                    }
+                },
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text(
-                text = deckName,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-            )
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = progressText,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.align(Alignment.CenterStart),
+                )
+                Text(
+                    text = deckName,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
 
             Column(
                 modifier = Modifier
@@ -951,8 +966,6 @@ fun StudyScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
                         )
-                    } else {
-                        Button(shape = AppButtonShape, onClick = { showAnswer = true }) { Text("Show answer") }
                     }
                 }
             }
@@ -998,11 +1011,6 @@ fun StudyScreen(
                 }
             }
 
-            Text(
-                text = progressText,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
         }
     }
 
