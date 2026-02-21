@@ -5,7 +5,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import com.ingrain.data.AppDatabase
 import com.ingrain.data.IngrainRepository
 import com.ingrain.scheduler.SchedulerSettingsStore
@@ -31,7 +34,16 @@ class MainActivity : ComponentActivity() {
                 onSurfaceVariant = Color(0xFF9FB4D0),
             )
 
-            MaterialTheme(colorScheme = premiumDark) {
+            val appShapes = Shapes(
+                small = RoundedCornerShape(0.dp),
+                medium = RoundedCornerShape(0.dp),
+                large = RoundedCornerShape(0.dp),
+            )
+
+            MaterialTheme(
+                colorScheme = premiumDark,
+                shapes = appShapes,
+            ) {
                 IngrainApp(repo = repo, settingsStore = settingsStore)
             }
         }
