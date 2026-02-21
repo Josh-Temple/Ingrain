@@ -33,7 +33,6 @@ fun IngrainApp(repo: IngrainRepository, settingsStore: SchedulerSettingsStore) {
             DeckListScreen(
                 repo = repo,
                 onOpenDeck = { nav.navigate("detail/$it") },
-                onGlobalAdd = { nav.navigate(Routes.IMPORT_GLOBAL) },
             )
         }
         composable(Routes.DETAIL, arguments = listOf(navArgument("deckId") { type = NavType.LongType })) { entry ->

@@ -31,6 +31,8 @@ class IngrainRepository(private val db: AppDatabase) {
 
     suspend fun deleteDeck(id: Long) = db.deckDao().delete(id)
 
+    suspend fun deleteCard(id: Long) = db.cardDao().delete(id)
+
     suspend fun getDeck(id: Long): DeckEntity? = db.deckDao().getById(id)
 
     suspend fun findDeckByName(name: String): DeckEntity? = db.deckDao().getByName(name.trim())

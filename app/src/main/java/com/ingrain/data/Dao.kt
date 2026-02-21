@@ -51,6 +51,9 @@ interface CardDao {
     @Update
     suspend fun update(card: CardEntity)
 
+    @Query("DELETE FROM cards WHERE id=:id")
+    suspend fun delete(id: Long)
+
     @Query("SELECT * FROM cards WHERE deck_id=:deckId ORDER BY id")
     suspend fun exportByDeck(deckId: Long): List<CardEntity>
 }
