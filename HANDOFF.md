@@ -1,9 +1,10 @@
 # HANDOFF
 
 ## This session
-- 角丸ボタン廃止に合わせて、Material テーマの `Shapes` を `0.dp` に統一しました。
-- 画面内で個別指定していた角丸要素（デッキ行、学習画面の進捗バー、メモカード、設定の FilterChip）もテーマ形状へ寄せ、見た目の一貫性を調整しました。
+- 「Study options」をデッキ詳細画面から外し、`Deck Settings` 画面へ移動しました。設定画面は `deckId` を受け取り、対象デッキの `Daily review limit` / `Daily new card limit` を編集・保存できるようになっています。
+- Deck Settings のナビゲーションを `settings/{deckId}` に変更し、デッキ単位で設定編集できるようにしました。
+- データベース初期化から `fallbackToDestructiveMigration()` を削除し、`MIGRATION_1_2` を追加しました。既存データを削除せずに `decks` テーブルへ学習上限カラムを追加できる構成です。
 
 ## Notes for next session
-- UI の実機確認（Android エミュレータ/端末）を実施し、角が鋭角化された影響でタップ領域や可読性に違和感がないか確認してください。
-- 現環境では Gradle 実行時に Java/Gradle 互換エラー（Unsupported class file major version 69）が出るため、CI もしくは適切な JDK での再検証が必要です。
+- 既存インストール環境（v1->v2, v2継続）で DB マイグレーションが安全に通るか実機で確認してください。
+- 端末更新時にデータが消える件は、署名鍵の差分やアンインストール再インストール運用でも発生し得るため、配布方法（同一署名での上書き）も合わせて確認してください。

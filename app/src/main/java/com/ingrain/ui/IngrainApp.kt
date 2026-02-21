@@ -22,7 +22,7 @@ object Routes {
     const val IMPORT_GLOBAL = "import-global"
     const val STUDY = "study/{deckId}"
     const val BACKUP = "backup/{deckId}"
-    const val SETTINGS = "settings"
+    const val SETTINGS = "settings/{deckId}"
 }
 
 @Composable
@@ -43,7 +43,7 @@ fun IngrainApp(repo: IngrainRepository, settingsStore: SchedulerSettingsStore) {
                 repo = repo,
                 onStudy = { nav.navigate("study/$deckId") },
                 onImport = { nav.navigate("import/$deckId") },
-                onSettings = { nav.navigate(Routes.SETTINGS) },
+                onSettings = { nav.navigate("settings/$deckId") },
                 onClose = { nav.popBackStack() },
             )
         }
@@ -60,8 +60,12 @@ fun IngrainApp(repo: IngrainRepository, settingsStore: SchedulerSettingsStore) {
                 settingsStore = settingsStore,
             )
         }
-        composable(Routes.SETTINGS) {
-            SettingsScreen(store = settingsStore)
+        composable(Routes.SETTINGS, arguments = listOf(navArgument("deckId") { type = NavType.LongType })) { entry ->
+            SettingsScreen(
+                deckId = entry.arguments?.getLong("deckId") ?: 0L,
+                repo = repo,
+                store = settingsStore,
+            )
         }
         composable(Routes.BACKUP, arguments = listOf(navArgument("deckId") { type = NavType.LongType })) { entry ->
             BackupScreen(deckId = entry.arguments?.getLong("deckId") ?: 0L, repo = repo)
