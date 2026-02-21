@@ -295,43 +295,101 @@ fun DeckDetailScreen(
     onStudy: () -> Unit,
     onImport: () -> Unit,
     onSettings: () -> Unit,
-    onBackup: () -> Unit,
+    onClose: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val deck by produceState<DeckEntity?>(initialValue = null, deckId) { value = repo.getDeck(deckId) }
-    var rename by remember(deck?.name) { mutableStateOf(deck?.name ?: "") }
-    var message by remember { mutableStateOf<String?>(null) }
+    var renameInput by remember(deck?.name) { mutableStateOf(deck?.name ?: "") }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var pendingDelete by remember { mutableStateOf(false) }
 
-    Scaffold(topBar = { TopAppBar(title = { Text(deck?.name ?: "Deck") }) }) { p ->
+    Scaffold(topBar = { TopAppBar(title = { Text("") }) }) { p ->
         Column(
-            Modifier.padding(p).padding(16.dp).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier
+                .padding(p)
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(28.dp),
         ) {
-            SurfaceCard {
-                Text("Deck setup", style = MaterialTheme.typography.titleMedium)
-                OutlinedTextField(
-                    value = rename,
-                    onValueChange = { rename = it },
-                    label = { Text("Deck name") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Button(onClick = {
-                    val current = deck ?: return@Button
-                    scope.launch {
-                        message = repo.renameDeck(current, rename).exceptionOrNull()?.message ?: "Deck renamed"
-                    }
-                }) { Text("Rename") }
-                if (message != null) Text(message!!)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(deck?.name ?: "Deck", style = MaterialTheme.typography.headlineLarge)
+                Text("DECK OPTIONS", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
-            SurfaceCard {
-                Text("Actions", style = MaterialTheme.typography.titleMedium)
-                Button(onClick = onStudy, modifier = Modifier.fillMaxWidth()) { Text("Study") }
-                Button(onClick = onImport, modifier = Modifier.fillMaxWidth()) { Text("Add Cards") }
-                Button(onClick = onSettings, modifier = Modifier.fillMaxWidth()) { Text("Scheduler Settings") }
-                TextButton(onClick = onBackup, modifier = Modifier.fillMaxWidth()) { Text("Backup & Restore") }
+            TextButton(onClick = onStudy) {
+                Text("Study Now", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+            }
+            TextButton(onClick = onImport) {
+                Text("Add Cards", style = MaterialTheme.typography.headlineSmall)
+            }
+            TextButton(onClick = onSettings) {
+                Text("Deck Settings", style = MaterialTheme.typography.headlineSmall)
+            }
+            TextButton(onClick = { showRenameDialog = true }) {
+                Text("Rename", style = MaterialTheme.typography.headlineSmall)
+            }
+            TextButton(onClick = { pendingDelete = true }) {
+                Text("Delete", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.error)
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Button(
+                onClick = onClose,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                Text("Close", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+    }
+
+    if (showRenameDialog) {
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            title = { Text("Rename deck") },
+            text = {
+                OutlinedTextField(
+                    value = renameInput,
+                    onValueChange = { renameInput = it },
+                    label = { Text("Deck name") },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val current = deck ?: return@TextButton
+                    scope.launch {
+                        repo.renameDeck(current, renameInput)
+                        showRenameDialog = false
+                    }
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = false }) { Text("Cancel") }
+            },
+        )
+    }
+
+    if (pendingDelete) {
+        AlertDialog(
+            onDismissRequest = { pendingDelete = false },
+            title = { Text("Delete deck") },
+            text = { Text("Delete \"${deck?.name ?: "this deck"}\"?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val current = deck ?: return@TextButton
+                    scope.launch {
+                        repo.deleteDeck(current.id)
+                        pendingDelete = false
+                        onClose()
+                    }
+                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = false }) { Text("Cancel") }
+            },
+        )
     }
 }
 

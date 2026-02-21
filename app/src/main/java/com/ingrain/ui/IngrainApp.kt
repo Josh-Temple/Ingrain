@@ -44,7 +44,7 @@ fun IngrainApp(repo: IngrainRepository, settingsStore: SchedulerSettingsStore) {
                 onStudy = { nav.navigate("study/$deckId") },
                 onImport = { nav.navigate("import/$deckId") },
                 onSettings = { nav.navigate(Routes.SETTINGS) },
-                onBackup = { nav.navigate("backup/$deckId") },
+                onClose = { nav.popBackStack() },
             )
         }
         composable(Routes.IMPORT, arguments = listOf(navArgument("deckId") { type = NavType.LongType })) { entry ->
