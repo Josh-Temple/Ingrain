@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -138,9 +139,20 @@ private fun SurfaceCard(content: @Composable () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DeckListScreen(repo: IngrainRepository, onOpenDeck: (Long) -> Unit) {
+fun DeckListScreen(
+    repo: IngrainRepository,
+    onStudyDeck: (Long) -> Unit,
+    onEditDeck: (Long) -> Unit,
+) {
     val decks by produceState(initialValue = emptyList<DeckEntity>(), repo) {
         repo.observeDecks().collect { value = it }
+    }
+    val dueCountByDeck by produceState(initialValue = emptyMap<Long, Int>(), decks) {
+        val now = System.currentTimeMillis()
+        val endOfDay = endOfDayMillis(now)
+        value = decks.associate { deck ->
+            deck.id to repo.countDueUntil(deck.id, endOfDay)
+        }
     }
     var pendingDeckDelete by remember { mutableStateOf<DeckEntity?>(null) }
     var showAddDeckDialog by remember { mutableStateOf(false) }
@@ -178,16 +190,33 @@ fun DeckListScreen(repo: IngrainRepository, onOpenDeck: (Long) -> Unit) {
                 }
             } else {
                 decks.forEachIndexed { index, deck ->
+                    val dueToday = dueCountByDeck[deck.id] ?: 0
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        TextButton(onClick = { onOpenDeck(deck.id) }) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onStudyDeck(deck.id) }
+                                .padding(horizontal = 8.dp, vertical = 12.dp),
+                        ) {
                             Text(deck.name, style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                text = if (dueToday > 0) "今日の残りあり" else "今日の残りなし",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
-                        TextButton(onClick = { pendingDeckDelete = deck }) {
-                            Text("Delete", color = MaterialTheme.colorScheme.error)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = { onEditDeck(deck.id) }) {
+                                Text("Edit")
+                            }
+                            TextButton(onClick = { pendingDeckDelete = deck }) {
+                                Text("Delete", color = MaterialTheme.colorScheme.error)
+                            }
                         }
                     }
                     if (index < decks.lastIndex) HorizontalDivider()
