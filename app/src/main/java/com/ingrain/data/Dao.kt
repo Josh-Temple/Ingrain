@@ -36,8 +36,30 @@ interface CardDao {
     @Query("SELECT * FROM cards WHERE deck_id=:deckId AND due_at <= :now ORDER BY due_at LIMIT 1")
     suspend fun getNextDue(deckId: Long, now: Long): CardEntity?
 
+    @Query(
+        """
+        SELECT * FROM cards
+        WHERE deck_id=:deckId
+          AND due_at <= :now
+          AND EXISTS(SELECT 1 FROM review_logs rl WHERE rl.card_id = cards.id AND rl.reviewed_at < :dayStart)
+        ORDER BY due_at
+        LIMIT 1
+        """
+    )
+    suspend fun getNextDueReviewedBefore(deckId: Long, now: Long, dayStart: Long): CardEntity?
+
     @Query("SELECT COUNT(*) FROM cards WHERE deck_id=:deckId AND due_at <= :until")
     suspend fun countDueUntil(deckId: Long, until: Long): Int
+
+    @Query(
+        """
+        SELECT COUNT(*) FROM cards
+        WHERE deck_id=:deckId
+          AND due_at <= :until
+          AND EXISTS(SELECT 1 FROM review_logs rl WHERE rl.card_id = cards.id AND rl.reviewed_at < :dayStart)
+        """
+    )
+    suspend fun countDueReviewedBefore(deckId: Long, until: Long, dayStart: Long): Int
 
     @Query("SELECT * FROM cards WHERE id=:id")
     suspend fun getById(id: Long): CardEntity?
@@ -62,4 +84,29 @@ interface CardDao {
 interface ReviewLogDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(log: ReviewLogEntity)
+
+    @Query(
+        """
+        SELECT COUNT(*)
+        FROM review_logs rl
+        INNER JOIN cards c ON c.id = rl.card_id
+        WHERE c.deck_id=:deckId AND rl.reviewed_at BETWEEN :startInclusive AND :endInclusive
+        """
+    )
+    suspend fun countReviewedInRange(deckId: Long, startInclusive: Long, endInclusive: Long): Int
+
+    @Query(
+        """
+        SELECT COUNT(DISTINCT rl.card_id)
+        FROM review_logs rl
+        INNER JOIN cards c ON c.id = rl.card_id
+        WHERE c.deck_id=:deckId
+          AND rl.reviewed_at BETWEEN :dayStart AND :dayEnd
+          AND NOT EXISTS(
+            SELECT 1 FROM review_logs prev
+            WHERE prev.card_id = rl.card_id AND prev.reviewed_at < :dayStart
+          )
+        """
+    )
+    suspend fun countNewCardsReviewedToday(deckId: Long, dayStart: Long, dayEnd: Long): Int
 }

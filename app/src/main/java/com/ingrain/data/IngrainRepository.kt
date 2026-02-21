@@ -35,6 +35,19 @@ class IngrainRepository(private val db: AppDatabase) {
 
     suspend fun getDeck(id: Long): DeckEntity? = db.deckDao().getById(id)
 
+    suspend fun updateDeckStudyOptions(deck: DeckEntity, dailyReviewLimit: Int, dailyNewCardLimit: Int): Result<Unit> = runCatching {
+        require(dailyReviewLimit > 0) { "Daily review limit must be at least 1" }
+        require(dailyNewCardLimit >= 0) { "Daily new card limit must be 0 or more" }
+        db.deckDao().update(
+            deck.copy(
+                dailyReviewLimit = dailyReviewLimit,
+                dailyNewCardLimit = dailyNewCardLimit,
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
+    }
+
+
     suspend fun findDeckByName(name: String): DeckEntity? = db.deckDao().getByName(name.trim())
 
     suspend fun getOrCreateDeck(name: String, now: Long): DeckEntity {
@@ -80,9 +93,33 @@ class IngrainRepository(private val db: AppDatabase) {
         }
     }
 
-    suspend fun nextDueCard(deckId: Long, now: Long): CardEntity? = db.cardDao().getNextDue(deckId, now)
+    suspend fun nextDueCard(deck: DeckEntity, now: Long, dayStart: Long, dayEnd: Long): CardEntity? {
+        val reviewedToday = db.reviewLogDao().countReviewedInRange(deck.id, dayStart, dayEnd)
+        if (reviewedToday >= deck.dailyReviewLimit) return null
 
-    suspend fun countDueUntil(deckId: Long, until: Long): Int = db.cardDao().countDueUntil(deckId, until)
+        val newCardsReviewedToday = db.reviewLogDao().countNewCardsReviewedToday(deck.id, dayStart, dayEnd)
+        return if (newCardsReviewedToday < deck.dailyNewCardLimit) {
+            db.cardDao().getNextDue(deck.id, now)
+        } else {
+            db.cardDao().getNextDueReviewedBefore(deck.id, now, dayStart)
+        }
+    }
+
+    suspend fun countDueUntil(deck: DeckEntity, dayStart: Long, dayEnd: Long, until: Long): Int {
+        val reviewedToday = db.reviewLogDao().countReviewedInRange(deck.id, dayStart, dayEnd)
+        val reviewCapacity = (deck.dailyReviewLimit - reviewedToday).coerceAtLeast(0)
+        if (reviewCapacity == 0) return 0
+
+        val dueCount = db.cardDao().countDueUntil(deck.id, until)
+        val newCardsReviewedToday = db.reviewLogDao().countNewCardsReviewedToday(deck.id, dayStart, dayEnd)
+        val hasNewCapacity = newCardsReviewedToday < deck.dailyNewCardLimit
+        val eligibleCount = if (hasNewCapacity) {
+            dueCount
+        } else {
+            db.cardDao().countDueReviewedBefore(deck.id, until, dayStart)
+        }
+        return minOf(eligibleCount, reviewCapacity)
+    }
 
     suspend fun review(card: CardEntity, rating: String, settings: SchedulerSettings, now: Long): CardEntity {
         val updated = if (rating == "GOOD") Scheduler.scheduleGood(card, now, settings)
