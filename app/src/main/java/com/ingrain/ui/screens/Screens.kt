@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -210,7 +209,7 @@ fun DeckListScreen(
                         Column(
                             modifier = Modifier
                                 .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(MaterialTheme.shapes.small)
                                 .clickable { onStudyDeck(deck.id) }
                                 .padding(horizontal = 8.dp, vertical = 12.dp),
                         ) {
@@ -625,8 +624,18 @@ private fun ManualAddSection(
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         TextButton(onClick = onCancel) { Text("Cancel") }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = simpleMode, onClick = { onSimpleModeChange(true) }, label = { Text("Simple") })
-            FilterChip(selected = !simpleMode, onClick = { onSimpleModeChange(false) }, label = { Text("Detailed") })
+            FilterChip(
+                selected = simpleMode,
+                onClick = { onSimpleModeChange(true) },
+                label = { Text("Simple") },
+                shape = MaterialTheme.shapes.small,
+            )
+            FilterChip(
+                selected = !simpleMode,
+                onClick = { onSimpleModeChange(false) },
+                label = { Text("Detailed") },
+                shape = MaterialTheme.shapes.small,
+            )
         }
     }
 
@@ -870,7 +879,7 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
                         modifier = Modifier
                             .width(64.dp)
                             .height(6.dp)
-                            .clip(RoundedCornerShape(999.dp))
+                            .clip(MaterialTheme.shapes.small)
                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
                     )
                     Spacer(modifier = Modifier.height(26.dp))
@@ -890,7 +899,7 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
                                 1.dp,
                                 MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
                             ),
-                            shape = RoundedCornerShape(16.dp),
+                            shape = MaterialTheme.shapes.medium,
                         ) {
                             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text(
