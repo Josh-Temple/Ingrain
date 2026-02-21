@@ -21,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Button
@@ -33,13 +34,15 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,6 +59,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -125,6 +129,36 @@ private data class ManualAddDraft(
 private fun parseTags(raw: String): List<String> = raw.split(",").map { it.trim() }.filter { it.isNotBlank() }
 
 private val screenJson = Json { ignoreUnknownKeys = true }
+
+@Composable
+private fun AppTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    readOnly: Boolean = false,
+    singleLine: Boolean = false,
+    label: @Composable (() -> Unit)? = null,
+    placeholder: @Composable (() -> Unit)? = null,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
+) {
+    TextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+        readOnly = readOnly,
+        singleLine = singleLine,
+        label = label,
+        placeholder = placeholder,
+        keyboardOptions = keyboardOptions,
+        keyboardActions = keyboardActions,
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = Color.Transparent,
+            unfocusedContainerColor = Color.Transparent,
+            disabledContainerColor = Color.Transparent,
+        ),
+    )
+}
 
 private fun CardEntity.primaryTag(): String {
     val tags = runCatching { screenJson.decodeFromString<List<String>>(tagsJson) }.getOrDefault(emptyList())
@@ -291,7 +325,7 @@ fun DeckListScreen(
             title = { Text("Create deck") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
+                    AppTextField(
                         value = newDeckName,
                         onValueChange = {
                             newDeckName = it
@@ -388,7 +422,7 @@ fun DeckDetailScreen(
             onDismissRequest = { showRenameDialog = false },
             title = { Text("Rename deck") },
             text = {
-                OutlinedTextField(
+                AppTextField(
                     value = renameInput,
                     onValueChange = { renameInput = it },
                     label = { Text("Deck name") },
@@ -618,7 +652,7 @@ private fun ManualAddSection(
 ) {
     val selectedDeck = decks.firstOrNull { it.id == selectedDeckId }
     Text("Target deck")
-    OutlinedTextField(
+    AppTextField(
         value = selectedDeck?.name ?: "",
         onValueChange = {},
         readOnly = true,
@@ -652,7 +686,7 @@ private fun ManualAddSection(
     }
 
     if (selectedDeckId == null) {
-        OutlinedTextField(
+        AppTextField(
             value = draft.deckName,
             onValueChange = { onDraftChange(draft.copy(deckName = it)) },
             label = { Text("Deck") },
@@ -667,7 +701,7 @@ private fun ManualAddSection(
     }
 
     SectionHeading("FRONT SIDE", primary = true)
-    OutlinedTextField(
+    AppTextField(
         value = draft.front,
         onValueChange = { onDraftChange(draft.copy(front = it)) },
         label = { Text("Term or Question") },
@@ -676,7 +710,7 @@ private fun ManualAddSection(
     )
 
     SectionHeading("BACK SIDE")
-    OutlinedTextField(
+    AppTextField(
         value = draft.back,
         onValueChange = { onDraftChange(draft.copy(back = it)) },
         label = { Text("Definition or Answer") },
@@ -686,7 +720,7 @@ private fun ManualAddSection(
     )
 
     if (!simpleMode) {
-        OutlinedTextField(
+        AppTextField(
             value = draft.tags,
             onValueChange = { onDraftChange(draft.copy(tags = it)) },
             label = { Text("Tags (comma separated)") },
@@ -771,7 +805,7 @@ private fun BulkImportSection(
     onImport: () -> Unit,
 ) {
     Text("Bulk add with JSON Lines")
-    OutlinedTextField(
+    AppTextField(
         value = bulkText,
         onValueChange = onBulkTextChange,
         modifier = Modifier.fillMaxWidth(),
@@ -792,13 +826,19 @@ private fun BulkImportSection(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerSettingsStore) {
+fun StudyScreen(
+    deckId: Long,
+    repo: IngrainRepository,
+    settingsStore: SchedulerSettingsStore,
+    onEditCard: (Long) -> Unit,
+) {
     val scope = rememberCoroutineScope()
     var card by remember { mutableStateOf<CardEntity?>(null) }
     var showAnswer by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
     var remainingToday by remember { mutableStateOf(0) }
     var pendingCardDelete by remember { mutableStateOf<CardEntity?>(null) }
+    var deckName by remember { mutableStateOf("Deck") }
 
     suspend fun loadDueCard() {
         val deck = repo.getDeck(deckId)
@@ -806,8 +846,10 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
             card = null
             remainingToday = 0
             message = "Deck not found"
+            deckName = "Deck"
             return
         }
+        deckName = deck.name
         val now = System.currentTimeMillis()
         val dayStart = startOfDayMillis(now)
         val dayEnd = endOfDayMillis(now)
@@ -833,36 +875,37 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
             modifier = Modifier
                 .fillMaxSize()
                 .padding(p)
-                .padding(horizontal = 24.dp, vertical = 20.dp),
+                .padding(horizontal = 16.dp, vertical = 20.dp),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
-            HorizontalDivider(
-                thickness = 3.dp,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+            Text(
+                text = deckName,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
             )
-
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.Start,
-            ) {
-                Text(
-                    text = "PROGRESS",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = "$progressText cards",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
 
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .padding(top = 10.dp),
+                    .padding(top = 10.dp)
+                    .pointerInput(currentCard?.id) {
+                        var totalDrag = 0f
+                        var opened = false
+                        detectVerticalDragGestures(
+                            onDragEnd = {
+                                totalDrag = 0f
+                                opened = false
+                            },
+                            onVerticalDrag = { _, dragAmount ->
+                                totalDrag += dragAmount
+                                if (!opened && totalDrag < -120f && currentCard != null) {
+                                    opened = true
+                                    onEditCard(currentCard.id)
+                                }
+                            },
+                        )
+                    },
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Top,
             ) {
@@ -874,25 +917,18 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
                     )
                 } else {
                     Text(
-                        text = currentCard.primaryTag(),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Text(
                         text = currentCard.front,
                         style = MaterialTheme.typography.displaySmall,
                         textAlign = TextAlign.Center,
                         fontWeight = FontWeight.ExtraBold,
                     )
                     Spacer(modifier = Modifier.height(24.dp))
-                    Box(
+                    HorizontalDivider(
                         modifier = Modifier
-                            .width(64.dp)
-                            .height(6.dp)
-                            .clip(MaterialTheme.shapes.small)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                        thickness = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f),
                     )
                     Spacer(modifier = Modifier.height(26.dp))
 
@@ -920,11 +956,6 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = FontWeight.Bold,
                                 )
-                                Text(
-                                    text = "Image-based study is not supported yet. For now, study uses text answers only.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
                                 val nextReview = java.time.Instant.ofEpochMilli(currentCard.dueAt)
                                     .atZone(java.time.ZoneId.systemDefault())
                                     .toLocalDate()
@@ -947,7 +978,7 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Button(shape = AppButtonShape, 
+                    Button(shape = AppButtonShape,
                         onClick = { scope.launch { submitReview(currentCard, RatingAgain) } },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
@@ -955,12 +986,12 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
                             contentColor = MaterialTheme.colorScheme.onSurface,
                         ),
                     ) { Text("Again") }
-                    Button(shape = AppButtonShape, 
+                    Button(shape = AppButtonShape,
                         onClick = { scope.launch { submitReview(currentCard, RatingGood) } },
                         modifier = Modifier.weight(2f),
                     ) { Text("Good") }
                 }
-                TextButton(shape = AppButtonShape, 
+                TextButton(shape = AppButtonShape,
                     onClick = { pendingCardDelete = currentCard },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -969,6 +1000,12 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
                     Text("Delete card", color = MaterialTheme.colorScheme.error)
                 }
             }
+
+            Text(
+                text = progressText,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
         }
     }
 
@@ -991,6 +1028,64 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
                 TextButton(shape = AppButtonShape, onClick = { pendingCardDelete = null }) { Text("Cancel") }
             },
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditCardScreen(cardId: Long, repo: IngrainRepository, onClose: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var card by remember { mutableStateOf<CardEntity?>(null) }
+    var front by remember { mutableStateOf("") }
+    var back by remember { mutableStateOf("") }
+    var tags by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf("") }
+
+    LaunchedEffect(cardId) {
+        val loaded = repo.getCard(cardId)
+        card = loaded
+        if (loaded != null) {
+            front = loaded.front
+            back = loaded.back
+            tags = runCatching { screenJson.decodeFromString<List<String>>(loaded.tagsJson) }
+                .getOrDefault(emptyList())
+                .joinToString(",")
+        } else {
+            message = "Card not found"
+        }
+    }
+
+    Scaffold(topBar = { TopAppBar(title = { Text("Edit Card") }) }) { p ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(p)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            AppTextField(value = front, onValueChange = { front = it }, label = { Text("Front") }, modifier = Modifier.fillMaxWidth())
+            AppTextField(value = back, onValueChange = { back = it }, label = { Text("Back") }, modifier = Modifier.fillMaxWidth())
+            AppTextField(value = tags, onValueChange = { tags = it }, label = { Text("Tags (comma separated)") }, modifier = Modifier.fillMaxWidth())
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(shape = AppButtonShape, onClick = onClose) { Text("Cancel") }
+                Button(shape = AppButtonShape, onClick = {
+                    val target = card ?: return@Button
+                    scope.launch {
+                        repo.updateCardContent(target, front, back, parseTags(tags))
+                            .onSuccess {
+                                onClose()
+                            }
+                            .onFailure {
+                                message = it.message ?: "Save failed"
+                            }
+                    }
+                }) { Text("Save") }
+            }
+            if (message.isNotBlank()) {
+                Text(message, color = MaterialTheme.colorScheme.error)
+            }
+        }
     }
 }
 
@@ -1026,7 +1121,7 @@ fun SettingsScreen(deckId: Long, repo: IngrainRepository, store: SchedulerSettin
         ) {
             SurfaceCard {
                 Text("Study options", style = MaterialTheme.typography.titleMedium)
-                OutlinedTextField(
+                AppTextField(
                     value = reviewLimitInput,
                     onValueChange = {
                         reviewLimitInput = it
@@ -1035,7 +1130,7 @@ fun SettingsScreen(deckId: Long, repo: IngrainRepository, store: SchedulerSettin
                     label = { Text("Daily review limit") },
                     singleLine = true,
                 )
-                OutlinedTextField(
+                AppTextField(
                     value = newCardLimitInput,
                     onValueChange = {
                         newCardLimitInput = it
@@ -1063,12 +1158,12 @@ fun SettingsScreen(deckId: Long, repo: IngrainRepository, store: SchedulerSettin
 
             SurfaceCard {
                 Text("Scheduler tuning", style = MaterialTheme.typography.titleMedium)
-                OutlinedTextField(initial, { initial = it }, label = { Text("Initial interval (days)") })
-                OutlinedTextField(second, { second = it }, label = { Text("Second interval (days)") })
-                OutlinedTextField(minEase, { minEase = it }, label = { Text("Minimum ease factor") })
-                OutlinedTextField(stepGood, { stepGood = it }, label = { Text("Ease step (Good)") })
-                OutlinedTextField(stepAgain, { stepAgain = it }, label = { Text("Ease step (Again)") })
-                OutlinedTextField(againDelay, { againDelay = it }, label = { Text("Again delay (minutes)") })
+                AppTextField(initial, { initial = it }, label = { Text("Initial interval (days)") })
+                AppTextField(second, { second = it }, label = { Text("Second interval (days)") })
+                AppTextField(minEase, { minEase = it }, label = { Text("Minimum ease factor") })
+                AppTextField(stepGood, { stepGood = it }, label = { Text("Ease step (Good)") })
+                AppTextField(stepAgain, { stepAgain = it }, label = { Text("Ease step (Again)") })
+                AppTextField(againDelay, { againDelay = it }, label = { Text("Again delay (minutes)") })
                 Button(shape = AppButtonShape, onClick = {
                     scope.launch {
                         val parsed = runCatching {

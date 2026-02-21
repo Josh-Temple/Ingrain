@@ -11,6 +11,7 @@ import com.ingrain.scheduler.SchedulerSettingsStore
 import com.ingrain.ui.screens.BackupScreen
 import com.ingrain.ui.screens.DeckDetailScreen
 import com.ingrain.ui.screens.DeckListScreen
+import com.ingrain.ui.screens.EditCardScreen
 import com.ingrain.ui.screens.ImportScreen
 import com.ingrain.ui.screens.SettingsScreen
 import com.ingrain.ui.screens.StudyScreen
@@ -23,6 +24,7 @@ object Routes {
     const val STUDY = "study/{deckId}"
     const val BACKUP = "backup/{deckId}"
     const val SETTINGS = "settings/{deckId}"
+    const val EDIT_CARD = "edit-card/{cardId}"
 }
 
 @Composable
@@ -59,6 +61,7 @@ fun IngrainApp(repo: IngrainRepository, settingsStore: SchedulerSettingsStore) {
                 deckId = entry.arguments?.getLong("deckId") ?: 0L,
                 repo = repo,
                 settingsStore = settingsStore,
+                onEditCard = { nav.navigate("edit-card/$it") },
             )
         }
         composable(Routes.SETTINGS, arguments = listOf(navArgument("deckId") { type = NavType.LongType })) { entry ->
@@ -70,6 +73,13 @@ fun IngrainApp(repo: IngrainRepository, settingsStore: SchedulerSettingsStore) {
         }
         composable(Routes.BACKUP, arguments = listOf(navArgument("deckId") { type = NavType.LongType })) { entry ->
             BackupScreen(deckId = entry.arguments?.getLong("deckId") ?: 0L, repo = repo)
+        }
+        composable(Routes.EDIT_CARD, arguments = listOf(navArgument("cardId") { type = NavType.LongType })) { entry ->
+            EditCardScreen(
+                cardId = entry.arguments?.getLong("cardId") ?: 0L,
+                repo = repo,
+                onClose = { nav.popBackStack() },
+            )
         }
     }
 }
