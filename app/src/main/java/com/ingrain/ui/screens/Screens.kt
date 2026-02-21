@@ -23,12 +23,15 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -135,86 +138,123 @@ private fun SurfaceCard(content: @Composable () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DeckListScreen(repo: IngrainRepository, onOpenDeck: (Long) -> Unit, onGlobalAdd: () -> Unit) {
+fun DeckListScreen(repo: IngrainRepository, onOpenDeck: (Long) -> Unit) {
     val decks by produceState(initialValue = emptyList<DeckEntity>(), repo) {
         repo.observeDecks().collect { value = it }
     }
-    var name by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf<String?>(null) }
+    var pendingDeckDelete by remember { mutableStateOf<DeckEntity?>(null) }
+    var showAddDeckDialog by remember { mutableStateOf(false) }
+    var newDeckName by remember { mutableStateOf("") }
+    var addDeckError by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Ingrain") }) }) { p ->
+    Scaffold(
+        topBar = { TopAppBar(title = { Text("Decks") }) },
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    selected = false,
+                    onClick = { showAddDeckDialog = true },
+                    icon = { Text("+") },
+                    label = { Text("Add deck") },
+                )
+            }
+        },
+    ) { p ->
         Column(
-            Modifier
+            modifier = Modifier
                 .padding(p)
-                .padding(horizontal = 20.dp, vertical = 12.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("Decks", style = MaterialTheme.typography.headlineSmall)
-                TextButton(onClick = onGlobalAdd) { Text("Add Card") }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("New deck") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(onClick = {
-                    scope.launch {
-                        error = repo.createDeck(name).exceptionOrNull()?.message
-                        if (error == null) name = ""
-                    }
-                }) {
-                    Text("Create")
-                }
-            }
-            if (error != null) {
-                Text(
-                    text = error!!,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-
-            HorizontalDivider()
-
             if (decks.isEmpty()) {
-                Text(
-                    text = "No decks yet",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "No decks yet",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             } else {
                 decks.forEachIndexed { index, deck ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         TextButton(onClick = { onOpenDeck(deck.id) }) {
                             Text(deck.name, style = MaterialTheme.typography.titleMedium)
                         }
-                        TextButton(onClick = { scope.launch { repo.deleteDeck(deck.id) } }) {
-                            Text("Delete", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(onClick = { pendingDeckDelete = deck }) {
+                            Text("Delete", color = MaterialTheme.colorScheme.error)
                         }
                     }
                     if (index < decks.lastIndex) HorizontalDivider()
                 }
             }
         }
+    }
+
+    val targetDeck = pendingDeckDelete
+    if (targetDeck != null) {
+        AlertDialog(
+            onDismissRequest = { pendingDeckDelete = null },
+            title = { Text("Delete deck") },
+            text = { Text("Delete \"${targetDeck.name}\"?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch { repo.deleteDeck(targetDeck.id) }
+                    pendingDeckDelete = null
+                }) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeckDelete = null }) { Text("Cancel") }
+            },
+        )
+    }
+
+    if (showAddDeckDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showAddDeckDialog = false
+                addDeckError = null
+            },
+            title = { Text("Create deck") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = newDeckName,
+                        onValueChange = {
+                            newDeckName = it
+                            addDeckError = null
+                        },
+                        singleLine = true,
+                        label = { Text("Deck name") },
+                    )
+                    if (addDeckError != null) {
+                        Text(addDeckError!!, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch {
+                        addDeckError = repo.createDeck(newDeckName).exceptionOrNull()?.message
+                        if (addDeckError == null) {
+                            newDeckName = ""
+                            showAddDeckDialog = false
+                        }
+                    }
+                }) { Text("Create") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showAddDeckDialog = false
+                    addDeckError = null
+                }) { Text("Cancel") }
+            },
+        )
     }
 }
 
@@ -588,6 +628,7 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
     var showAnswer by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
     var remainingToday by remember { mutableStateOf(0) }
+    var pendingCardDelete by remember { mutableStateOf<CardEntity?>(null) }
 
     suspend fun loadDueCard() {
         val now = System.currentTimeMillis()
@@ -695,13 +736,13 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
                         ) {
                             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text(
-                                    text = "TEXT NOTE",
+                                    text = "Note",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = FontWeight.Bold,
                                 )
                                 Text(
-                                    text = "画像学習は未対応。現在はテキスト回答のみで学習できます。",
+                                    text = "Image-based study is not supported yet. For now, study uses text answers only.",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurface,
                                 )
@@ -709,7 +750,7 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
                                     .atZone(java.time.ZoneId.systemDefault())
                                     .toLocalDate()
                                 Text(
-                                    text = "次回予定: $nextReview",
+                                    text = "Next review: $nextReview",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontStyle = FontStyle.Italic,
@@ -741,15 +782,36 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
                     ) { Text("Good") }
                 }
                 TextButton(
-                    onClick = { },
+                    onClick = { pendingCardDelete = currentCard },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 12.dp),
                 ) {
-                    Text("Edit Card", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Delete card", color = MaterialTheme.colorScheme.error)
                 }
             }
         }
+    }
+
+    val targetCard = pendingCardDelete
+    if (targetCard != null) {
+        AlertDialog(
+            onDismissRequest = { pendingCardDelete = null },
+            title = { Text("Delete card") },
+            text = { Text("Delete this card?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch {
+                        repo.deleteCard(targetCard.id)
+                        pendingCardDelete = null
+                        loadDueCard()
+                    }
+                }) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingCardDelete = null }) { Text("Cancel") }
+            },
+        )
     }
 }
 
