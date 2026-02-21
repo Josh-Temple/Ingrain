@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -82,6 +83,8 @@ private val addTemplates = listOf(
 
 private const val RatingAgain = "AGAIN"
 private const val RatingGood = "GOOD"
+
+private val AppButtonShape = RoundedCornerShape(8.dp)
 
 private fun startOfDayMillis(nowMillis: Long): Long {
     val zoneId = java.time.ZoneId.systemDefault()
@@ -215,16 +218,16 @@ fun DeckListScreen(
                         ) {
                             Text(deck.name, style = MaterialTheme.typography.titleMedium)
                             Text(
-                                text = if (dueToday > 0) "今日の残りあり" else "今日の残りなし",
+                                text = if (dueToday > 0) "Due cards remaining today" else "No due cards remaining today",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(onClick = { onEditDeck(deck.id) }) {
+                            TextButton(shape = AppButtonShape, onClick = { onEditDeck(deck.id) }) {
                                 Text("Edit")
                             }
-                            TextButton(onClick = { pendingDeckDelete = deck }) {
+                            TextButton(shape = AppButtonShape, onClick = { pendingDeckDelete = deck }) {
                                 Text("Delete", color = MaterialTheme.colorScheme.error)
                             }
                         }
@@ -242,13 +245,13 @@ fun DeckListScreen(
             title = { Text("Delete deck") },
             text = { Text("Delete \"${targetDeck.name}\"?") },
             confirmButton = {
-                TextButton(onClick = {
+                TextButton(shape = AppButtonShape, onClick = {
                     scope.launch { repo.deleteDeck(targetDeck.id) }
                     pendingDeckDelete = null
                 }) { Text("Delete") }
             },
             dismissButton = {
-                TextButton(onClick = { pendingDeckDelete = null }) { Text("Cancel") }
+                TextButton(shape = AppButtonShape, onClick = { pendingDeckDelete = null }) { Text("Cancel") }
             },
         )
     }
@@ -277,7 +280,7 @@ fun DeckListScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
+                TextButton(shape = AppButtonShape, onClick = {
                     scope.launch {
                         addDeckError = repo.createDeck(newDeckName).exceptionOrNull()?.message
                         if (addDeckError == null) {
@@ -288,7 +291,7 @@ fun DeckListScreen(
                 }) { Text("Create") }
             },
             dismissButton = {
-                TextButton(onClick = {
+                TextButton(shape = AppButtonShape, onClick = {
                     showAddDeckDialog = false
                     addDeckError = null
                 }) { Text("Cancel") }
@@ -326,25 +329,25 @@ fun DeckDetailScreen(
                 Text("DECK OPTIONS", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
-            TextButton(onClick = onStudy) {
+            TextButton(shape = AppButtonShape, onClick = onStudy) {
                 Text("Study Now", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
             }
-            TextButton(onClick = onImport) {
+            TextButton(shape = AppButtonShape, onClick = onImport) {
                 Text("Add Cards", style = MaterialTheme.typography.headlineSmall)
             }
-            TextButton(onClick = onSettings) {
+            TextButton(shape = AppButtonShape, onClick = onSettings) {
                 Text("Deck Settings", style = MaterialTheme.typography.headlineSmall)
             }
-            TextButton(onClick = { showRenameDialog = true }) {
+            TextButton(shape = AppButtonShape, onClick = { showRenameDialog = true }) {
                 Text("Rename", style = MaterialTheme.typography.headlineSmall)
             }
-            TextButton(onClick = { pendingDelete = true }) {
+            TextButton(shape = AppButtonShape, onClick = { pendingDelete = true }) {
                 Text("Delete", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.error)
             }
 
             Spacer(modifier = Modifier.weight(1f))
 
-            Button(
+            Button(shape = AppButtonShape, 
                 onClick = onClose,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -367,7 +370,7 @@ fun DeckDetailScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
+                TextButton(shape = AppButtonShape, onClick = {
                     val current = deck ?: return@TextButton
                     scope.launch {
                         repo.renameDeck(current, renameInput)
@@ -376,7 +379,7 @@ fun DeckDetailScreen(
                 }) { Text("Save") }
             },
             dismissButton = {
-                TextButton(onClick = { showRenameDialog = false }) { Text("Cancel") }
+                TextButton(shape = AppButtonShape, onClick = { showRenameDialog = false }) { Text("Cancel") }
             },
         )
     }
@@ -387,7 +390,7 @@ fun DeckDetailScreen(
             title = { Text("Delete deck") },
             text = { Text("Delete \"${deck?.name ?: "this deck"}\"?") },
             confirmButton = {
-                TextButton(onClick = {
+                TextButton(shape = AppButtonShape, onClick = {
                     val current = deck ?: return@TextButton
                     scope.launch {
                         repo.deleteDeck(current.id)
@@ -397,7 +400,7 @@ fun DeckDetailScreen(
                 }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { pendingDelete = false }) { Text("Cancel") }
+                TextButton(shape = AppButtonShape, onClick = { pendingDelete = false }) { Text("Cancel") }
             },
         )
     }
@@ -571,19 +574,19 @@ private fun ManualAddSection(
     Text(if (fixedDeck != null) "Target deck: ${fixedDeck.name}" else "Global add mode")
 
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        TextButton(onClick = onCancel) { Text("Cancel") }
+        TextButton(shape = AppButtonShape, onClick = onCancel) { Text("Cancel") }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(
+            FilterChip(shape = AppButtonShape, 
                 selected = simpleMode,
                 onClick = { onSimpleModeChange(true) },
                 label = { Text("Simple") },
-                shape = MaterialTheme.shapes.small,
+                
             )
-            FilterChip(
+            FilterChip(shape = AppButtonShape, 
                 selected = !simpleMode,
                 onClick = { onSimpleModeChange(false) },
                 label = { Text("Detailed") },
-                shape = MaterialTheme.shapes.small,
+                
             )
         }
     }
@@ -598,7 +601,7 @@ private fun ManualAddSection(
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             decks.take(3).forEach {
-                TextButton(onClick = { onDraftChange(draft.copy(deckName = it.name)) }) { Text(it.name) }
+                TextButton(shape = AppButtonShape, onClick = { onDraftChange(draft.copy(deckName = it.name)) }) { Text(it.name) }
             }
         }
     }
@@ -632,8 +635,8 @@ private fun ManualAddSection(
     }
 
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = { }) { Text("Add Tag") }
-        Button(onClick = { }) { Text("Record Audio") }
+        Button(shape = AppButtonShape, onClick = { }) { Text("Add Tag") }
+        Button(shape = AppButtonShape, onClick = { }) { Text("Record Audio") }
     }
 
     if (duplicateHint != null) {
@@ -656,12 +659,12 @@ private fun ManualAddSection(
         }
     }
 
-    Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) { Text("Save Card (Ctrl+Enter)") }
+    Button(shape = AppButtonShape, onClick = onSave, modifier = Modifier.fillMaxWidth()) { Text("Save Card (Ctrl+Enter)") }
 
     if (recentPresets.isNotEmpty()) {
         Text("Recent inputs")
         recentPresets.forEachIndexed { idx, preset ->
-            TextButton(onClick = {
+            TextButton(shape = AppButtonShape, onClick = {
                 onDraftChange(draft.copy(front = preset.front, back = preset.back, tags = preset.tags))
             }) {
                 Text("${idx + 1}. ${preset.front.take(24)}")
@@ -680,7 +683,7 @@ private fun TemplateSection(
     Text("Templates")
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         addTemplates.forEach { preset ->
-            TextButton(onClick = {
+            TextButton(shape = AppButtonShape, onClick = {
                 val updatedTags = if (simpleMode) draft.tags else preset.tags
                 onDraftChange(draft.copy(front = preset.front, back = preset.back, tags = updatedTags))
             }) { Text(preset.name) }
@@ -688,8 +691,8 @@ private fun TemplateSection(
     }
 
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = onCopyTemplate) { Text("Copy template") }
-        Button(onClick = {
+        Button(shape = AppButtonShape, onClick = onCopyTemplate) { Text("Copy template") }
+        Button(shape = AppButtonShape, onClick = {
             val default = addTemplates.first()
             val updatedTags = if (simpleMode) draft.tags else default.tags
             onDraftChange(draft.copy(front = default.front, back = default.back, tags = updatedTags))
@@ -715,8 +718,8 @@ private fun BulkImportSection(
         label = { Text("Paste JSON Lines") },
     )
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = onPreview) { Text("Preview") }
-        Button(onClick = onImport) { Text("Import") }
+        Button(shape = AppButtonShape, onClick = onPreview) { Text("Preview") }
+        Button(shape = AppButtonShape, onClick = onImport) { Text("Import") }
     }
     preview.take(20).forEach { result ->
         when (result) {
@@ -874,7 +877,7 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
                             }
                         }
                     } else {
-                        Button(onClick = { showAnswer = true }) { Text("Show answer") }
+                        Button(shape = AppButtonShape, onClick = { showAnswer = true }) { Text("Show answer") }
                     }
                 }
             }
@@ -884,7 +887,7 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Button(
+                    Button(shape = AppButtonShape, 
                         onClick = { scope.launch { submitReview(currentCard, RatingAgain) } },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
@@ -892,12 +895,12 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
                             contentColor = MaterialTheme.colorScheme.onSurface,
                         ),
                     ) { Text("Again") }
-                    Button(
+                    Button(shape = AppButtonShape, 
                         onClick = { scope.launch { submitReview(currentCard, RatingGood) } },
                         modifier = Modifier.weight(2f),
                     ) { Text("Good") }
                 }
-                TextButton(
+                TextButton(shape = AppButtonShape, 
                     onClick = { pendingCardDelete = currentCard },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -916,7 +919,7 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
             title = { Text("Delete card") },
             text = { Text("Delete this card?") },
             confirmButton = {
-                TextButton(onClick = {
+                TextButton(shape = AppButtonShape, onClick = {
                     scope.launch {
                         repo.deleteCard(targetCard.id)
                         pendingCardDelete = null
@@ -925,7 +928,7 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
                 }) { Text("Delete") }
             },
             dismissButton = {
-                TextButton(onClick = { pendingCardDelete = null }) { Text("Cancel") }
+                TextButton(shape = AppButtonShape, onClick = { pendingCardDelete = null }) { Text("Cancel") }
             },
         )
     }
@@ -981,7 +984,7 @@ fun SettingsScreen(deckId: Long, repo: IngrainRepository, store: SchedulerSettin
                     label = { Text("Daily new card limit") },
                     singleLine = true,
                 )
-                Button(onClick = {
+                Button(shape = AppButtonShape, onClick = {
                     scope.launch {
                         val deck = repo.getDeck(deckId)
                         val parsedReview = reviewLimitInput.toIntOrNull()
@@ -1006,7 +1009,7 @@ fun SettingsScreen(deckId: Long, repo: IngrainRepository, store: SchedulerSettin
                 OutlinedTextField(stepGood, { stepGood = it }, label = { Text("Ease step (Good)") })
                 OutlinedTextField(stepAgain, { stepAgain = it }, label = { Text("Ease step (Again)") })
                 OutlinedTextField(againDelay, { againDelay = it }, label = { Text("Again delay (minutes)") })
-                Button(onClick = {
+                Button(shape = AppButtonShape, onClick = {
                     scope.launch {
                         val parsed = runCatching {
                             SchedulerSettings(
@@ -1093,13 +1096,13 @@ fun BackupScreen(deckId: Long, repo: IngrainRepository) {
             SurfaceCard {
                 Text("Data portability", style = MaterialTheme.typography.titleMedium)
                 Text("Export your deck or import from a JSONL backup.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Button(onClick = {
+                Button(shape = AppButtonShape, onClick = {
                     pendingOperation = FileOperation.EXPORT
                     createLauncher.launch("ingrain-backup.jsonl")
                 }, modifier = Modifier.fillMaxWidth()) {
                     Text("Export deck")
                 }
-                Button(onClick = {
+                Button(shape = AppButtonShape, onClick = {
                     pendingOperation = FileOperation.IMPORT
                     openLauncher.launch(arrayOf("*/*"))
                 }, modifier = Modifier.fillMaxWidth()) {
