@@ -2,6 +2,9 @@
 Ingrainは、Ankiの思想を参考にしつつ「登録のしにくさ」を解消するために作る、個人用フラッシュカードAndroidアプリです。  
 AIが生成した出力をコピペして大量登録できることを最優先にし、復習ロジックはSuperMemo（SM-2）をベースにしたシンプル版にします。
 
+## UI language policy
+- All in-app UI copy must be written in English.
+
 ## Goals
 - **単一入力欄**に貼り付け → 自動でカード化（UI上でFront/Backを分けない）
 - **AIフレンドリーなインポート**：JSON Lines（1行1カード）
@@ -361,4 +364,3 @@ Performance sanity (paging不要。MVPはシンプルに)
 - Import/Export系（JSON Linesの異常入力、SAFファイルI/O失敗時）のテストを追加し、防御的実装の回帰を防ぐ。
 - UIを画面別ファイルへさらに分割（`Screens.kt` の分離）し、保守しやすい構成にする。
 - READMEのDefinition of Doneに対するチェックリストをIssue化し、完了証跡（スクリーンショット/ログ）を残す。
-

@@ -1,5 +1,8 @@
 # HANDOFF
 
+## Documentation policy
+- Keep all in-app UI copy in English.
+
 ## This session
 - 「Study options」をデッキ詳細画面から外し、`Deck Settings` 画面へ移動しました。設定画面は `deckId` を受け取り、対象デッキの `Daily review limit` / `Daily new card limit` を編集・保存できるようになっています。
 - Deck Settings のナビゲーションを `settings/{deckId}` に変更し、デッキ単位で設定編集できるようにしました。
