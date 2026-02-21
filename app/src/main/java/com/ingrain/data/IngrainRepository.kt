@@ -35,6 +35,24 @@ class IngrainRepository(private val db: AppDatabase) {
 
     suspend fun getDeck(id: Long): DeckEntity? = db.deckDao().getById(id)
 
+    suspend fun getCard(id: Long): CardEntity? = db.cardDao().getById(id)
+
+    suspend fun updateCardContent(card: CardEntity, front: String, back: String, tags: List<String>): Result<Unit> = runCatching {
+        val trimmedFront = front.trim()
+        val trimmedBack = back.trim()
+        require(trimmedFront.isNotBlank()) { "Front is required" }
+        require(trimmedBack.isNotBlank()) { "Back is required" }
+        val normalizedTags = tags.map { it.trim() }.filter { it.isNotBlank() }
+        db.cardDao().update(
+            card.copy(
+                front = trimmedFront,
+                back = trimmedBack,
+                tagsJson = json.encodeToString(normalizedTags),
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
+    }
+
     suspend fun updateDeckStudyOptions(deck: DeckEntity, dailyReviewLimit: Int, dailyNewCardLimit: Int): Result<Unit> = runCatching {
         require(dailyReviewLimit > 0) { "Daily review limit must be at least 1" }
         require(dailyNewCardLimit >= 0) { "Daily new card limit must be 0 or more" }
