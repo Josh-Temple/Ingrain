@@ -84,6 +84,16 @@ private val addTemplates = listOf(
 private const val RatingAgain = "AGAIN"
 private const val RatingGood = "GOOD"
 
+private fun startOfDayMillis(nowMillis: Long): Long {
+    val zoneId = java.time.ZoneId.systemDefault()
+    return java.time.Instant.ofEpochMilli(nowMillis)
+        .atZone(zoneId)
+        .toLocalDate()
+        .atStartOfDay(zoneId)
+        .toInstant()
+        .toEpochMilli()
+}
+
 private fun endOfDayMillis(nowMillis: Long): Long {
     val zoneId = java.time.ZoneId.systemDefault()
     return java.time.Instant.ofEpochMilli(nowMillis)
@@ -149,9 +159,10 @@ fun DeckListScreen(
     }
     val dueCountByDeck by produceState(initialValue = emptyMap<Long, Int>(), decks) {
         val now = System.currentTimeMillis()
+        val dayStart = startOfDayMillis(now)
         val endOfDay = endOfDayMillis(now)
         value = decks.associate { deck ->
-            deck.id to repo.countDueUntil(deck.id, endOfDay)
+            deck.id to repo.countDueUntil(deck, dayStart, endOfDay, endOfDay)
         }
     }
     var pendingDeckDelete by remember { mutableStateOf<DeckEntity?>(null) }
@@ -300,7 +311,11 @@ fun DeckDetailScreen(
     val scope = rememberCoroutineScope()
     val deck by produceState<DeckEntity?>(initialValue = null, deckId) { value = repo.getDeck(deckId) }
     var renameInput by remember(deck?.name) { mutableStateOf(deck?.name ?: "") }
+    var reviewLimitInput by remember(deck?.dailyReviewLimit) { mutableStateOf(deck?.dailyReviewLimit?.toString() ?: "") }
+    var newCardLimitInput by remember(deck?.dailyNewCardLimit) { mutableStateOf(deck?.dailyNewCardLimit?.toString() ?: "") }
     var showRenameDialog by remember { mutableStateOf(false) }
+    var deckOptionMessage by remember { mutableStateOf<String?>(null) }
+    var deckOptionError by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf(false) }
 
     Scaffold(topBar = { TopAppBar(title = { Text("") }) }) { p ->
@@ -314,6 +329,53 @@ fun DeckDetailScreen(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(deck?.name ?: "Deck", style = MaterialTheme.typography.headlineLarge)
                 Text("DECK OPTIONS", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            SurfaceCard {
+                Text("Study options", style = MaterialTheme.typography.titleMedium)
+                OutlinedTextField(
+                    value = reviewLimitInput,
+                    onValueChange = {
+                        reviewLimitInput = it
+                        deckOptionMessage = null
+                        deckOptionError = false
+                    },
+                    label = { Text("Daily review limit") },
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = newCardLimitInput,
+                    onValueChange = {
+                        newCardLimitInput = it
+                        deckOptionMessage = null
+                        deckOptionError = false
+                    },
+                    label = { Text("Daily new card limit") },
+                    singleLine = true,
+                )
+                if (deckOptionMessage != null) {
+                    Text(
+                        deckOptionMessage!!,
+                        color = if (deckOptionError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Button(onClick = {
+                    val current = deck ?: return@Button
+                    scope.launch {
+                        val parsedReview = reviewLimitInput.toIntOrNull()
+                        val parsedNew = newCardLimitInput.toIntOrNull()
+                        if (parsedReview == null || parsedNew == null) {
+                            deckOptionMessage = "Please enter valid integers"
+                            deckOptionError = true
+                            return@launch
+                        }
+                        val result = repo.updateDeckStudyOptions(current, parsedReview, parsedNew)
+                        deckOptionMessage = result.exceptionOrNull()?.message ?: "Saved"
+                        deckOptionError = result.isFailure
+                    }
+                }) {
+                    Text("Save study options")
+                }
             }
 
             TextButton(onClick = onStudy) {
@@ -718,9 +780,18 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
     var pendingCardDelete by remember { mutableStateOf<CardEntity?>(null) }
 
     suspend fun loadDueCard() {
+        val deck = repo.getDeck(deckId)
+        if (deck == null) {
+            card = null
+            remainingToday = 0
+            message = "Deck not found"
+            return
+        }
         val now = System.currentTimeMillis()
-        card = repo.nextDueCard(deckId, now)
-        remainingToday = repo.countDueUntil(deckId, endOfDayMillis(now))
+        val dayStart = startOfDayMillis(now)
+        val dayEnd = endOfDayMillis(now)
+        card = repo.nextDueCard(deck, now, dayStart, dayEnd)
+        remainingToday = repo.countDueUntil(deck, dayStart, dayEnd, dayEnd)
         showAnswer = false
         if (card == null) message = "You're done for today"
     }

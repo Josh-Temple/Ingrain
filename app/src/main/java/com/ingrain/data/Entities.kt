@@ -6,10 +6,15 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
+const val DEFAULT_DAILY_REVIEW_LIMIT = 100
+const val DEFAULT_DAILY_NEW_CARD_LIMIT = 1
+
 @Entity(tableName = "decks", indices = [Index(value = ["name"], unique = true)])
 data class DeckEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
+    @ColumnInfo(name = "daily_review_limit") val dailyReviewLimit: Int = DEFAULT_DAILY_REVIEW_LIMIT,
+    @ColumnInfo(name = "daily_new_card_limit") val dailyNewCardLimit: Int = DEFAULT_DAILY_NEW_CARD_LIMIT,
     @ColumnInfo(name = "created_at") val createdAt: Long,
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
 )
