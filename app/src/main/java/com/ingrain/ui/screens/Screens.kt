@@ -51,6 +51,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -61,7 +62,6 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -71,11 +71,13 @@ import com.ingrain.data.DeckEntity
 import com.ingrain.data.IngrainRepository
 import com.ingrain.importing.JsonLinesParser
 import com.ingrain.importing.ParseResult
+import com.ingrain.scheduler.Scheduler
 import com.ingrain.scheduler.SchedulerSettings
 import com.ingrain.scheduler.SchedulerSettingsStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import kotlin.math.roundToInt
 
 data class AddPreset(val name: String, val front: String, val back: String, val tags: String)
 
@@ -109,6 +111,15 @@ private fun endOfDayMillis(nowMillis: Long): Long {
         .atStartOfDay(zoneId)
         .toInstant()
         .toEpochMilli() - 1
+}
+
+private fun formatIntervalShort(days: Double): String {
+    val roundedDays = (days * 10).roundToInt() / 10.0
+    return if (roundedDays % 1.0 == 0.0) {
+        "${roundedDays.toInt()}d"
+    } else {
+        "${roundedDays}d"
+    }
 }
 
 @Composable
@@ -833,6 +844,7 @@ fun StudyScreen(
     onEditCard: (Long) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val schedulerSettings by settingsStore.settings.collectAsState(initial = SchedulerSettings())
     var card by remember { mutableStateOf<CardEntity?>(null) }
     var showAnswer by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
@@ -939,34 +951,6 @@ fun StudyScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
                         )
-                        Spacer(modifier = Modifier.height(20.dp))
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                            ),
-                            shape = MaterialTheme.shapes.medium,
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(
-                                    text = "Note",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                                val nextReview = java.time.Instant.ofEpochMilli(currentCard.dueAt)
-                                    .atZone(java.time.ZoneId.systemDefault())
-                                    .toLocalDate()
-                                Text(
-                                    text = "Next review: $nextReview",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontStyle = FontStyle.Italic,
-                                )
-                            }
-                        }
                     } else {
                         Button(shape = AppButtonShape, onClick = { showAnswer = true }) { Text("Show answer") }
                     }
@@ -989,7 +973,20 @@ fun StudyScreen(
                     Button(shape = AppButtonShape,
                         onClick = { scope.launch { submitReview(currentCard, RatingGood) } },
                         modifier = Modifier.weight(2f),
-                    ) { Text("Good") }
+                    ) {
+                        val nextGoodInterval = Scheduler.scheduleGood(
+                            currentCard,
+                            System.currentTimeMillis(),
+                            schedulerSettings,
+                        ).intervalDays
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = formatIntervalShort(nextGoodInterval),
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                            Text("Good")
+                        }
+                    }
                 }
                 TextButton(shape = AppButtonShape,
                     onClick = { pendingCardDelete = currentCard },
