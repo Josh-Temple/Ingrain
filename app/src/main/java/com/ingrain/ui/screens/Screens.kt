@@ -155,6 +155,7 @@ fun DeckListScreen(
     repo: IngrainRepository,
     onStudyDeck: (Long) -> Unit,
     onEditDeck: (Long) -> Unit,
+    onAddCard: () -> Unit,
 ) {
     val decks by produceState(initialValue = emptyList<DeckEntity>(), repo) {
         repo.observeDecks().collect { value = it }
@@ -169,6 +170,7 @@ fun DeckListScreen(
     }
     var pendingDeckDelete by remember { mutableStateOf<DeckEntity?>(null) }
     var showAddDeckDialog by remember { mutableStateOf(false) }
+    var showAddActionDialog by remember { mutableStateOf(false) }
     var newDeckName by remember { mutableStateOf("") }
     var addDeckError by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -179,9 +181,9 @@ fun DeckListScreen(
             NavigationBar {
                 NavigationBarItem(
                     selected = false,
-                    onClick = { showAddDeckDialog = true },
+                    onClick = { showAddActionDialog = true },
                     icon = { Text("+") },
-                    label = { Text("Add deck") },
+                    label = { Text("ADD") },
                 )
             }
         },
@@ -252,6 +254,30 @@ fun DeckListScreen(
             },
             dismissButton = {
                 TextButton(shape = AppButtonShape, onClick = { pendingDeckDelete = null }) { Text("Cancel") }
+            },
+        )
+    }
+
+
+    if (showAddActionDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddActionDialog = false },
+            title = { Text("Add") },
+            text = { Text("Choose what to add") },
+            confirmButton = {
+                TextButton(shape = AppButtonShape, onClick = {
+                    showAddActionDialog = false
+                    showAddDeckDialog = true
+                }) { Text("Add deck") }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(shape = AppButtonShape, onClick = {
+                        showAddActionDialog = false
+                        onAddCard()
+                    }) { Text("Add card") }
+                    TextButton(shape = AppButtonShape, onClick = { showAddActionDialog = false }) { Text("Cancel") }
+                }
             },
         )
     }
@@ -416,11 +442,11 @@ fun ImportScreen(deckId: Long?, repo: IngrainRepository) {
     val decks by produceState(initialValue = emptyList<DeckEntity>(), repo) {
         repo.observeDecks().collect { value = it }
     }
-    val fixedDeck = remember(deckId, decks) { decks.firstOrNull { it.id == deckId } }
 
     var simpleMode by rememberSaveable { mutableStateOf(true) }
     var continuousMode by rememberSaveable { mutableStateOf(true) }
     var keepDeckInContinuous by rememberSaveable { mutableStateOf(true) }
+    var selectedDeckId by rememberSaveable { mutableStateOf<Long?>(null) }
     var deckName by rememberSaveable { mutableStateOf("") }
     var front by rememberSaveable { mutableStateOf("") }
     var back by rememberSaveable { mutableStateOf("") }
@@ -430,17 +456,34 @@ fun ImportScreen(deckId: Long?, repo: IngrainRepository) {
     var preview by remember { mutableStateOf<List<ParseResult>>(emptyList()) }
     val recentPresets = remember { mutableStateListOf<AddPreset>() }
     var duplicateHint by remember { mutableStateOf<String?>(null) }
+    val selectedDeck = remember(selectedDeckId, decks) { decks.firstOrNull { it.id == selectedDeckId } }
+
+    LaunchedEffect(deckId, decks) {
+        if (decks.isEmpty()) {
+            selectedDeckId = null
+            return@LaunchedEffect
+        }
+        if (selectedDeckId != null && decks.none { it.id == selectedDeckId }) {
+            selectedDeckId = null
+        }
+        if (deckId != null && selectedDeckId == null) {
+            val deckFromRoute = decks.firstOrNull { it.id == deckId }
+            if (deckFromRoute != null) {
+                deckName = deckFromRoute.name
+            }
+        }
+    }
 
     fun clearDraft(preserveTags: Boolean, preserveDeck: Boolean) {
         front = ""
         back = ""
         if (!preserveTags) tags = ""
-        if (!preserveDeck && fixedDeck == null) deckName = ""
+        if (!preserveDeck && selectedDeckId == null) deckName = ""
     }
 
     suspend fun submitCard() {
         val now = System.currentTimeMillis()
-        val targetDeck = fixedDeck?.name ?: deckName.trim()
+        val targetDeck = selectedDeck?.name ?: deckName.trim()
         if (targetDeck.isBlank()) {
             message = "Deck is required in global add"
             return
@@ -469,9 +512,9 @@ fun ImportScreen(deckId: Long?, repo: IngrainRepository) {
         }
     }
 
-    LaunchedEffect(front, back, fixedDeck?.id, deckName) {
+    LaunchedEffect(front, back, selectedDeckId, deckName, decks) {
         duplicateHint = null
-        val targetDeck = fixedDeck?.name ?: deckName.trim()
+        val targetDeck = selectedDeck?.name ?: deckName.trim()
         val trimmedFront = front.trim()
         val trimmedBack = back.trim()
         if (targetDeck.isBlank() || trimmedFront.isBlank() || trimmedBack.isBlank()) return@LaunchedEffect
@@ -501,8 +544,9 @@ fun ImportScreen(deckId: Long?, repo: IngrainRepository) {
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             ManualAddSection(
-                fixedDeck = fixedDeck,
+                selectedDeckId = selectedDeckId,
                 decks = decks,
+                onSelectedDeckIdChange = { selectedDeckId = it },
                 simpleMode = simpleMode,
                 onSimpleModeChange = { simpleMode = it },
                 draft = draft,
@@ -520,7 +564,7 @@ fun ImportScreen(deckId: Long?, repo: IngrainRepository) {
                 recentPresets = recentPresets,
                 onCopyTemplate = {
                     val template = jsonTemplate(
-                        deckName = fixedDeck?.name ?: deckName.ifBlank { "<deck-name>" },
+                        deckName = selectedDeck?.name ?: deckName.ifBlank { "<deck-name>" },
                         front = front,
                         back = back,
                         tags = tags,
@@ -555,8 +599,9 @@ fun ImportScreen(deckId: Long?, repo: IngrainRepository) {
 
 @Composable
 private fun ManualAddSection(
-    fixedDeck: DeckEntity?,
+    selectedDeckId: Long?,
     decks: List<DeckEntity>,
+    onSelectedDeckIdChange: (Long?) -> Unit,
     simpleMode: Boolean,
     onSimpleModeChange: (Boolean) -> Unit,
     draft: ManualAddDraft,
@@ -571,7 +616,22 @@ private fun ManualAddSection(
     onCancel: () -> Unit,
     onSave: () -> Unit,
 ) {
-    Text(if (fixedDeck != null) "Target deck: ${fixedDeck.name}" else "Global add mode")
+    val selectedDeck = decks.firstOrNull { it.id == selectedDeckId }
+    Text("Target deck")
+    OutlinedTextField(
+        value = selectedDeck?.name ?: "",
+        onValueChange = {},
+        readOnly = true,
+        label = { Text("Selected deck (optional)") },
+        modifier = Modifier.fillMaxWidth(),
+        placeholder = { Text("Not selected") },
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextButton(shape = AppButtonShape, onClick = { onSelectedDeckIdChange(null) }) { Text("None") }
+        decks.forEach {
+            TextButton(shape = AppButtonShape, onClick = { onSelectedDeckIdChange(it.id) }) { Text(it.name) }
+        }
+    }
 
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         TextButton(shape = AppButtonShape, onClick = onCancel) { Text("Cancel") }
@@ -591,7 +651,7 @@ private fun ManualAddSection(
         }
     }
 
-    if (fixedDeck == null) {
+    if (selectedDeckId == null) {
         OutlinedTextField(
             value = draft.deckName,
             onValueChange = { onDraftChange(draft.copy(deckName = it)) },
@@ -600,7 +660,7 @@ private fun ManualAddSection(
             placeholder = { Text("BIOLOGY 101") },
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            decks.take(3).forEach {
+            decks.forEach {
                 TextButton(shape = AppButtonShape, onClick = { onDraftChange(draft.copy(deckName = it.name)) }) { Text(it.name) }
             }
         }
@@ -653,7 +713,7 @@ private fun ManualAddSection(
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Continuous mode")
         Switch(checked = continuousMode, onCheckedChange = onContinuousModeChange)
-        if (fixedDeck == null) {
+        if (selectedDeckId == null) {
             Text("Keep deck")
             Switch(checked = keepDeckInContinuous, onCheckedChange = onKeepDeckInContinuousChange)
         }
@@ -802,9 +862,9 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .padding(top = 28.dp),
+                    .padding(top = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
+                verticalArrangement = Arrangement.Top,
             ) {
                 if (currentCard == null) {
                     Text(

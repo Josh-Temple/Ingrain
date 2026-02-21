@@ -4,10 +4,12 @@
 - Keep all in-app UI copy in English.
 
 ## This session
-- 「Study options」をデッキ詳細画面から外し、`Deck Settings` 画面へ移動しました。設定画面は `deckId` を受け取り、対象デッキの `Daily review limit` / `Daily new card limit` を編集・保存できるようになっています。
-- Deck Settings のナビゲーションを `settings/{deckId}` に変更し、デッキ単位で設定編集できるようにしました。
-- データベース初期化から `fallbackToDestructiveMigration()` を削除し、`MIGRATION_1_2` を追加しました。既存データを削除せずに `decks` テーブルへ学習上限カラムを追加できる構成です。
+- Deck一覧の下部ナビゲーションを `ADD` 表示に変更し、タップ時に「Add deck / Add card」を選択するダイアログを追加しました。`Add card` はグローバル追加画面（`import-global`）へ遷移します。
+- カード追加画面の `Target deck` を固定表示から任意選択に変更しました。`None` を含む選択UIを追加し、未選択時は従来どおり Deck 名入力（または JSON Lines の deck 指定）で複数デッキへ一括追加できる状態にしています。
+- デッキ一覧/デッキ詳細のどちらからカード追加画面へ遷移した場合でも、`Target deck` はデフォルト未選択にしました（デッキ詳細遷移時は deck 名入力欄の初期候補としてのみ利用）。
+
+- Study画面でカード表面（front）を画面中央寄せから上寄せに変更し、学習時に先頭情報がより上部に表示されるように調整しました。
 
 ## Notes for next session
-- 既存インストール環境（v1->v2, v2継続）で DB マイグレーションが安全に通るか実機で確認してください。
-- 端末更新時にデータが消える件は、署名鍵の差分やアンインストール再インストール運用でも発生し得るため、配布方法（同一署名での上書き）も合わせて確認してください。
+- Material3 の `ExposedDropdownMenuBox` などへ切り替えると、`Target deck` の選択UIをさらにスケールしやすくできます（現状はボタン一覧）。
+- この環境では Gradle 実行時に JDK/Gradle 互換性エラー（Unsupported class file major version 69）が出るため、CI かローカルJDK整備済み環境でのビルド確認が必要です。
