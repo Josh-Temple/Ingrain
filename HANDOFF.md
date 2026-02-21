@@ -17,6 +17,32 @@
 - 学習画面の `STUDY` タグ表示を廃止し、デッキ名をヘッダー位置に表示するよう変更しました。
 - 学習画面で上方向スワイプすると、表示中カードの編集画面（`Edit Card`）に遷移できるようにしました。
 
+- Markdown + YAML front matter を採用する前提で設計方針を再点検しました。
+  - カード境界は `---` ではなく `===` を推奨（front matterとの衝突回避）。
+  - スタイル適用は CSS ではなく、トークンベース（例: heading3 / strong）のComposeマッピング方式を推奨。
+  - 方針として「入力はMarkdown、内部は構造化（AST/JSON）で描画」が保守性・拡張性の観点で妥当。
+- 他AI（GPTs / Gems）へカード作成を依頼するための指示文テンプレートを `templates/ai_card_writer_prompt.md` として追加しました。
+
+## Next steps / plan (no implementation yet)
+1. Markdown card syntax v1 を仕様として固定する。
+   - 必須: YAML front matter (`deck`, `tags`) + `### Front` / `### Back`
+   - 複数カード区切り: `===`
+2. Parser/Validator 仕様を定義する。
+   - 必須セクション不足、front matter不正、空Front/Backの検知
+   - 行番号付きエラーメッセージ方針
+3. Renderer方針を確定する。
+   - Markdownサブセット（h3, bold, italic, list, paragraph）
+   - Style token → MaterialTheme mapping
+4. Data migration方針を確定する。
+   - 既存 `front/back` との後方互換
+   - 将来的な AST/JSON キャッシュ導入可否
+5. Import/Export拡張を設計する。
+   - JSONL現行形式との互換保持
+   - Markdownソース出力・再取込仕様
+6. 他AI用プロンプト運用を整備する。
+   - `templates/ai_card_writer_prompt.md` をREADMEから参照可能にするか検討
+   - Deck/Tag命名規則のガイドを追記
+
 ## Notes for next session
 - Material3 の `ExposedDropdownMenuBox` などへ切り替えると、`Target deck` の選択UIをさらにスケールしやすくできます（現状はボタン一覧）。
 - この環境では Gradle 実行時に JDK/Gradle 互換性エラー（Unsupported class file major version 69）が出るため、CI かローカルJDK整備済み環境でのビルド確認が必要です。
