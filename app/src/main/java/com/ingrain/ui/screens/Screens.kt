@@ -310,11 +310,7 @@ fun DeckDetailScreen(
     val scope = rememberCoroutineScope()
     val deck by produceState<DeckEntity?>(initialValue = null, deckId) { value = repo.getDeck(deckId) }
     var renameInput by remember(deck?.name) { mutableStateOf(deck?.name ?: "") }
-    var reviewLimitInput by remember(deck?.dailyReviewLimit) { mutableStateOf(deck?.dailyReviewLimit?.toString() ?: "") }
-    var newCardLimitInput by remember(deck?.dailyNewCardLimit) { mutableStateOf(deck?.dailyNewCardLimit?.toString() ?: "") }
     var showRenameDialog by remember { mutableStateOf(false) }
-    var deckOptionMessage by remember { mutableStateOf<String?>(null) }
-    var deckOptionError by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf(false) }
 
     Scaffold(topBar = { TopAppBar(title = { Text("") }) }) { p ->
@@ -328,53 +324,6 @@ fun DeckDetailScreen(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(deck?.name ?: "Deck", style = MaterialTheme.typography.headlineLarge)
                 Text("DECK OPTIONS", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-
-            SurfaceCard {
-                Text("Study options", style = MaterialTheme.typography.titleMedium)
-                OutlinedTextField(
-                    value = reviewLimitInput,
-                    onValueChange = {
-                        reviewLimitInput = it
-                        deckOptionMessage = null
-                        deckOptionError = false
-                    },
-                    label = { Text("Daily review limit") },
-                    singleLine = true,
-                )
-                OutlinedTextField(
-                    value = newCardLimitInput,
-                    onValueChange = {
-                        newCardLimitInput = it
-                        deckOptionMessage = null
-                        deckOptionError = false
-                    },
-                    label = { Text("Daily new card limit") },
-                    singleLine = true,
-                )
-                if (deckOptionMessage != null) {
-                    Text(
-                        deckOptionMessage!!,
-                        color = if (deckOptionError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                    )
-                }
-                Button(onClick = {
-                    val current = deck ?: return@Button
-                    scope.launch {
-                        val parsedReview = reviewLimitInput.toIntOrNull()
-                        val parsedNew = newCardLimitInput.toIntOrNull()
-                        if (parsedReview == null || parsedNew == null) {
-                            deckOptionMessage = "Please enter valid integers"
-                            deckOptionError = true
-                            return@launch
-                        }
-                        val result = repo.updateDeckStudyOptions(current, parsedReview, parsedNew)
-                        deckOptionMessage = result.exceptionOrNull()?.message ?: "Saved"
-                        deckOptionError = result.isFailure
-                    }
-                }) {
-                    Text("Save study options")
-                }
             }
 
             TextButton(onClick = onStudy) {
@@ -984,7 +933,7 @@ fun StudyScreen(deckId: Long, repo: IngrainRepository, settingsStore: SchedulerS
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(store: SchedulerSettingsStore) {
+fun SettingsScreen(deckId: Long, repo: IngrainRepository, store: SchedulerSettingsStore) {
     val scope = rememberCoroutineScope()
     val settings by produceState(initialValue = SchedulerSettings(), store) {
         store.settings.collect { value = it }
@@ -996,13 +945,59 @@ fun SettingsScreen(store: SchedulerSettingsStore) {
     var stepGood by remember(settings) { mutableStateOf(settings.easeFactorStepGood.toString()) }
     var stepAgain by remember(settings) { mutableStateOf(settings.easeFactorStepAgain.toString()) }
     var againDelay by remember(settings) { mutableStateOf(settings.againDelayMinutes.toString()) }
+    var reviewLimitInput by remember { mutableStateOf("") }
+    var newCardLimitInput by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Settings") }) }) { p ->
+    LaunchedEffect(deckId) {
+        repo.getDeck(deckId)?.let { deck ->
+            reviewLimitInput = deck.dailyReviewLimit.toString()
+            newCardLimitInput = deck.dailyNewCardLimit.toString()
+        }
+    }
+
+    Scaffold(topBar = { TopAppBar(title = { Text("Deck Settings") }) }) { p ->
         Column(
             Modifier.padding(p).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            SurfaceCard {
+                Text("Study options", style = MaterialTheme.typography.titleMedium)
+                OutlinedTextField(
+                    value = reviewLimitInput,
+                    onValueChange = {
+                        reviewLimitInput = it
+                        message = ""
+                    },
+                    label = { Text("Daily review limit") },
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = newCardLimitInput,
+                    onValueChange = {
+                        newCardLimitInput = it
+                        message = ""
+                    },
+                    label = { Text("Daily new card limit") },
+                    singleLine = true,
+                )
+                Button(onClick = {
+                    scope.launch {
+                        val deck = repo.getDeck(deckId)
+                        val parsedReview = reviewLimitInput.toIntOrNull()
+                        val parsedNew = newCardLimitInput.toIntOrNull()
+                        message = if (deck == null) {
+                            "Deck not found"
+                        } else if (parsedReview == null || parsedNew == null) {
+                            "Invalid numeric input"
+                        } else {
+                            val result = repo.updateDeckStudyOptions(deck, parsedReview, parsedNew)
+                            result.exceptionOrNull()?.message ?: "Study options saved"
+                        }
+                    }
+                }) { Text("Save study options") }
+            }
+
             SurfaceCard {
                 Text("Scheduler tuning", style = MaterialTheme.typography.titleMedium)
                 OutlinedTextField(initial, { initial = it }, label = { Text("Initial interval (days)") })
