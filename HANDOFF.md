@@ -18,7 +18,7 @@
 - Renderer は CSS ではなくスタイルトークン（heading3 / paragraph / list / strong / emphasis）で表示します。
 
 - Add Card の `Templates` では、`Markdown` / `JSON Lines` を選択して `Copy template` できます。
-- 書式ガイドは Decks 画面左上 `Menu` から開く「App formatting guide」に集約しました（H3/Bold/Italic/List の説明 + コピー）。
+- 書式ガイドは Decks 画面右上 `Menu` から開く「App formatting guide」に集約しました（H3/Bold/Italic/List の説明 + コピー）。
 
 ## This session (latest)
 - `Screens.kt` をリファクタリングし、Decks画面の書式ガイドダイアログを `AppFormattingGuideDialog` に分離しました。
@@ -42,3 +42,12 @@
 ## Notes for next session
 - `Target deck` は現状ボタン列。Deck数が増える場合は `ExposedDropdownMenuBox` 等への切替を検討。
 - この環境では Gradle 実行時に JDK/Gradle 互換性エラー（`Unsupported class file major version 69`）が発生するため、CI またはローカルJDK整備済み環境でのビルド確認が必要。
+
+
+## Known issues / product challenges
+- **UI責務の集中**: `Screens.kt` が複数画面（Decks/Detail/Import/Study/Edit/Settings/Backup）を抱えており、変更影響が読みにくくなりやすい。
+- **Menu情報設計の混在**: `App formatting guide` に Markdown書式ガイドとグローバル見た目設定（Accent / Button size）が同居しているため、目的別導線としては再整理余地あり。
+- **テーマ設定粒度の不足**: 現在の全体スタイルは主に `primary` と `shapes.small` への反映で、他の視覚要素（surface/typography等）との一貫したカスタマイズ方針が未整理。
+- **Study操作の発見性**: タップで解答表示・上スワイプで編集というジェスチャー中心設計は、初見ユーザーに気づかれにくい可能性あり。
+- **Import失敗時の可観測性**: `importParsed` で例外を集約して `failed++` する箇所があり、原因調査やUIへの詳細表示が弱い。
+- **ビルド再現性**: 現環境では Gradle 実行時に `Unsupported class file major version 69` が発生し、ローカル検証が不安定。
