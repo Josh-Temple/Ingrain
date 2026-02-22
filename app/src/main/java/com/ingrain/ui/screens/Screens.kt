@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -42,6 +41,8 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
@@ -76,6 +77,9 @@ import com.ingrain.scheduler.Scheduler
 import com.ingrain.scheduler.SchedulerSettings
 import com.ingrain.scheduler.SchedulerSettingsStore
 import com.ingrain.ui.MarkdownTokenText
+import com.ingrain.ui.UiStylePresets
+import com.ingrain.ui.UiStyleSettings
+import com.ingrain.ui.UiStyleSettingsStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
@@ -101,7 +105,9 @@ private val formattingExamples = listOf(
 private const val RatingAgain = "AGAIN"
 private const val RatingGood = "GOOD"
 
-private val AppButtonShape = RoundedCornerShape(8.dp)
+private val AppButtonShape
+    @Composable
+    get() = MaterialTheme.shapes.small
 
 private fun startOfDayMillis(nowMillis: Long): Long {
     val zoneId = java.time.ZoneId.systemDefault()
@@ -241,6 +247,7 @@ fun DeckListScreen(
     onStudyDeck: (Long) -> Unit,
     onEditDeck: (Long) -> Unit,
     onAddCard: () -> Unit,
+    uiStyleStore: UiStyleSettingsStore,
 ) {
     val decks by produceState(initialValue = emptyList<DeckEntity>(), repo) {
         repo.observeDecks().collect { value = it }
@@ -259,6 +266,7 @@ fun DeckListScreen(
     var newDeckName by remember { mutableStateOf("") }
     var addDeckError by remember { mutableStateOf<String?>(null) }
     var showFormattingMenu by remember { mutableStateOf(false) }
+    val uiStyle by uiStyleStore.settings.collectAsState(initial = UiStyleSettings())
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val clipboard = context.getSystemService(ClipboardManager::class.java)
@@ -267,7 +275,7 @@ fun DeckListScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Decks") },
-                navigationIcon = {
+                actions = {
                     TextButton(shape = AppButtonShape, onClick = { showFormattingMenu = true }) { Text("Menu") }
                 },
             )
@@ -337,6 +345,8 @@ fun DeckListScreen(
 
     if (showFormattingMenu) {
         AppFormattingGuideDialog(
+            uiStyle = uiStyle,
+            onSaveStyle = { updated -> scope.launch { uiStyleStore.save(updated) } },
             onDismiss = { showFormattingMenu = false },
             onCopy = { label, snippet ->
                 clipboard?.setPrimaryClip(ClipData.newPlainText(label, snippet))
@@ -538,15 +548,58 @@ fun DeckDetailScreen(
 
 @Composable
 private fun AppFormattingGuideDialog(
+    uiStyle: UiStyleSettings,
+    onSaveStyle: (UiStyleSettings) -> Unit,
     onDismiss: () -> Unit,
     onCopy: (label: String, snippet: String) -> Unit,
 ) {
+    var showAccentMenu by remember { mutableStateOf(false) }
+    var showSizeMenu by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("App formatting guide") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("These Markdown styles are shared across all decks and cards.")
+                Text("Global UI style (applies to all decks)")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Accent:")
+                    Box {
+                        TextButton(shape = AppButtonShape, onClick = { showAccentMenu = true }) {
+                            Text(UiStylePresets.accentLabels.getOrElse(uiStyle.accentIndex) { "Blue" })
+                        }
+                        DropdownMenu(expanded = showAccentMenu, onDismissRequest = { showAccentMenu = false }) {
+                            UiStylePresets.accentLabels.forEachIndexed { index, label ->
+                                DropdownMenuItem(
+                                    text = { Text(label) },
+                                    onClick = {
+                                        onSaveStyle(uiStyle.copy(accentIndex = index))
+                                        showAccentMenu = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Button size:")
+                    Box {
+                        TextButton(shape = AppButtonShape, onClick = { showSizeMenu = true }) {
+                            Text("${uiStyle.buttonCornerRadiusDp}dp")
+                        }
+                        DropdownMenu(expanded = showSizeMenu, onDismissRequest = { showSizeMenu = false }) {
+                            listOf(0, 8, 16, 24).forEach { radius ->
+                                DropdownMenuItem(
+                                    text = { Text("Radius ${radius}dp") },
+                                    onClick = {
+                                        onSaveStyle(uiStyle.copy(buttonCornerRadiusDp = radius))
+                                        showSizeMenu = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
                 formattingExamples.forEach { item ->
                     Text(item.description)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
