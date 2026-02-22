@@ -626,6 +626,29 @@ private fun AppFormattingGuideDialog(
     var bulkThemeMessage by remember { mutableStateOf<String?>(null) }
 
     @Composable
+    fun SectionTitle(title: String, description: String) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+
+    @Composable
+    fun LabeledSettingRow(label: String, helper: String? = null, controls: @Composable () -> Unit) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                helper?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                controls()
+            }
+        }
+    }
+
+    @Composable
     fun stylePickerRow(
         title: String,
         currentSize: Int,
@@ -635,8 +658,7 @@ private fun AppFormattingGuideDialog(
     ) {
         var sizeMenu by remember { mutableStateOf(false) }
         var colorMenu by remember { mutableStateOf(false) }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(title)
+        LabeledSettingRow(label = title, helper = "文字サイズと色の強弱") {
             Box {
                 TextButton(shape = AppButtonShape, onClick = { sizeMenu = true }) { Text("${currentSize}sp") }
                 DropdownMenu(expanded = sizeMenu, onDismissRequest = { sizeMenu = false }) {
@@ -675,211 +697,207 @@ private fun AppFormattingGuideDialog(
         title = { Text("App formatting guide") },
         text = {
             Column(
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
                 modifier = Modifier.verticalScroll(rememberScrollState()),
             ) {
                 Text("These Markdown styles are shared across all decks and cards.")
-                Text("Theme")
-                Text("Bulk theme input (CSS variables or JSON)")
-                TextField(
-                    value = bulkThemeInput,
-                    onValueChange = {
-                        bulkThemeInput = it
-                        bulkThemeMessage = null
-                    },
-                    placeholder = { Text("Paste :root vars or a colors JSON block") },
-                    modifier = Modifier.fillMaxWidth().height(140.dp),
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(shape = AppButtonShape, onClick = {
-                        val parsed = parseThemeColors(bulkThemeInput)
-                        if (parsed == null) {
-                            bulkThemeMessage = "Could not parse 5 colors. Required: background, surface, text, primary, accent."
-                        } else {
-                            onSaveStyle(
-                                uiStyle.copy(
-                                    customBackgroundColorArgb = parsed.background.toArgb(),
-                                    customSurfaceColorArgb = parsed.surface.toArgb(),
-                                    customTextColorArgb = parsed.text.toArgb(),
-                                    customPrimaryColorArgb = parsed.primary.toArgb(),
-                                    customSecondaryColorArgb = parsed.accent.toArgb(),
-                                ),
-                            )
-                            bulkThemeMessage = "Theme colors applied."
-                        }
-                    }) { Text("Apply bulk colors") }
-                    TextButton(shape = AppButtonShape, onClick = {
-                        bulkThemeInput = ""
-                        bulkThemeMessage = null
-                    }) { Text("Clear") }
-                }
-                bulkThemeMessage?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Primary:")
-                    Box {
-                        TextButton(shape = AppButtonShape, onClick = { showAccentMenu = true }) {
-                            Text(UiStylePresets.accentLabels.getOrElse(uiStyle.accentIndex) { "Blue" })
-                        }
-                        DropdownMenu(expanded = showAccentMenu, onDismissRequest = { showAccentMenu = false }) {
-                            UiStylePresets.accentLabels.forEachIndexed { index, label ->
-                                DropdownMenuItem(
-                                    text = { Text(label) },
-                                    onClick = {
+                SurfaceCard {
+                    SectionTitle("Theme", "項目名を見やすく強調し、関連設定をまとめました")
+                    LabeledSettingRow("Bulk theme input", "CSS variables または JSON を貼り付け") {
+                        TextField(
+                            value = bulkThemeInput,
+                            onValueChange = {
+                                bulkThemeInput = it
+                                bulkThemeMessage = null
+                            },
+                            placeholder = { Text("Paste :root vars or a colors JSON block") },
+                            modifier = Modifier.fillMaxWidth().height(140.dp),
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(shape = AppButtonShape, onClick = {
+                            val parsed = parseThemeColors(bulkThemeInput)
+                            if (parsed == null) {
+                                bulkThemeMessage = "Could not parse 5 colors. Required: background, surface, text, primary, accent."
+                            } else {
+                                onSaveStyle(
+                                    uiStyle.copy(
+                                        customBackgroundColorArgb = parsed.background.toArgb(),
+                                        customSurfaceColorArgb = parsed.surface.toArgb(),
+                                        customTextColorArgb = parsed.text.toArgb(),
+                                        customPrimaryColorArgb = parsed.primary.toArgb(),
+                                        customSecondaryColorArgb = parsed.accent.toArgb(),
+                                    ),
+                                )
+                                bulkThemeMessage = "Theme colors applied."
+                            }
+                        }) { Text("Apply bulk colors") }
+                        TextButton(shape = AppButtonShape, onClick = {
+                            bulkThemeInput = ""
+                            bulkThemeMessage = null
+                        }) { Text("Clear") }
+                    }
+                    bulkThemeMessage?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    HorizontalDivider()
+                    LabeledSettingRow("Accent", "アプリ全体の強調色") {
+                        Box {
+                            TextButton(shape = AppButtonShape, onClick = { showAccentMenu = true }) {
+                                Text(UiStylePresets.accentLabels.getOrElse(uiStyle.accentIndex) { "Blue" })
+                            }
+                            DropdownMenu(expanded = showAccentMenu, onDismissRequest = { showAccentMenu = false }) {
+                                UiStylePresets.accentLabels.forEachIndexed { index, label ->
+                                    DropdownMenuItem(text = { Text(label) }, onClick = {
                                         onSaveStyle(uiStyle.copy(accentIndex = index, customPrimaryColorArgb = null, customSecondaryColorArgb = null))
                                         showAccentMenu = false
-                                    },
-                                )
+                                    })
+                                }
                             }
                         }
                     }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Background:")
-                    Box {
-                        TextButton(shape = AppButtonShape, onClick = { showBackgroundMenu = true }) {
-                            Text(UiStylePresets.surfaceBackgroundLabels.getOrElse(uiStyle.backgroundColorIndex) { "Navy" })
-                        }
-                        DropdownMenu(expanded = showBackgroundMenu, onDismissRequest = { showBackgroundMenu = false }) {
-                            UiStylePresets.surfaceBackgroundLabels.forEachIndexed { index, label ->
-                                DropdownMenuItem(text = { Text(label) }, onClick = {
-                                    onSaveStyle(uiStyle.copy(backgroundColorIndex = index, customBackgroundColorArgb = null))
-                                    showBackgroundMenu = false
-                                })
+                    LabeledSettingRow("Background", "画面全体の背景色") {
+                        Box {
+                            TextButton(shape = AppButtonShape, onClick = { showBackgroundMenu = true }) {
+                                Text(UiStylePresets.surfaceBackgroundLabels.getOrElse(uiStyle.backgroundColorIndex) { "Navy" })
+                            }
+                            DropdownMenu(expanded = showBackgroundMenu, onDismissRequest = { showBackgroundMenu = false }) {
+                                UiStylePresets.surfaceBackgroundLabels.forEachIndexed { index, label ->
+                                    DropdownMenuItem(text = { Text(label) }, onClick = {
+                                        onSaveStyle(uiStyle.copy(backgroundColorIndex = index, customBackgroundColorArgb = null))
+                                        showBackgroundMenu = false
+                                    })
+                                }
                             }
                         }
                     }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Surface:")
-                    Box {
-                        TextButton(shape = AppButtonShape, onClick = { showSurfaceMenu = true }) {
-                            Text(UiStylePresets.surfaceBackgroundLabels.getOrElse(uiStyle.surfaceColorIndex) { "Deep blue" })
-                        }
-                        DropdownMenu(expanded = showSurfaceMenu, onDismissRequest = { showSurfaceMenu = false }) {
-                            UiStylePresets.surfaceBackgroundLabels.forEachIndexed { index, label ->
-                                DropdownMenuItem(text = { Text(label) }, onClick = {
-                                    onSaveStyle(uiStyle.copy(surfaceColorIndex = index, customSurfaceColorArgb = null))
-                                    showSurfaceMenu = false
-                                })
+                    LabeledSettingRow("Surface", "カードやダイアログの面色") {
+                        Box {
+                            TextButton(shape = AppButtonShape, onClick = { showSurfaceMenu = true }) {
+                                Text(UiStylePresets.surfaceBackgroundLabels.getOrElse(uiStyle.surfaceColorIndex) { "Deep blue" })
+                            }
+                            DropdownMenu(expanded = showSurfaceMenu, onDismissRequest = { showSurfaceMenu = false }) {
+                                UiStylePresets.surfaceBackgroundLabels.forEachIndexed { index, label ->
+                                    DropdownMenuItem(text = { Text(label) }, onClick = {
+                                        onSaveStyle(uiStyle.copy(surfaceColorIndex = index, customSurfaceColorArgb = null))
+                                        showSurfaceMenu = false
+                                    })
+                                }
                             }
                         }
                     }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Text:")
-                    Box {
-                        TextButton(shape = AppButtonShape, onClick = { showTextMenu = true }) {
-                            Text(UiStylePresets.textLabels.getOrElse(uiStyle.textColorIndex) { "Ice" })
-                        }
-                        DropdownMenu(expanded = showTextMenu, onDismissRequest = { showTextMenu = false }) {
-                            UiStylePresets.textLabels.forEachIndexed { index, label ->
-                                DropdownMenuItem(text = { Text(label) }, onClick = {
-                                    onSaveStyle(uiStyle.copy(textColorIndex = index, customTextColorArgb = null))
-                                    showTextMenu = false
-                                })
+                    LabeledSettingRow("Text", "本文の標準文字色") {
+                        Box {
+                            TextButton(shape = AppButtonShape, onClick = { showTextMenu = true }) {
+                                Text(UiStylePresets.textLabels.getOrElse(uiStyle.textColorIndex) { "Ice" })
                             }
-                        }
-                    }
-                }
-
-                Text("Typography")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Font:")
-                    Box {
-                        TextButton(shape = AppButtonShape, onClick = { showFontMenu = true }) {
-                            Text(AppFontMode.fromId(uiStyle.fontModeId).label)
-                        }
-                        DropdownMenu(expanded = showFontMenu, onDismissRequest = { showFontMenu = false }) {
-                            AppFontMode.entries.forEach { mode ->
-                                DropdownMenuItem(text = { Text(mode.label) }, onClick = {
-                                    onSaveStyle(uiStyle.copy(fontModeId = mode.id))
-                                    showFontMenu = false
-                                })
-                            }
-                        }
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Button radius:")
-                    Box {
-                        TextButton(shape = AppButtonShape, onClick = { showSizeMenu = true }) {
-                            Text("${uiStyle.buttonCornerRadiusDp}dp")
-                        }
-                        DropdownMenu(expanded = showSizeMenu, onDismissRequest = { showSizeMenu = false }) {
-                            listOf(0, 8, 16, 24).forEach { radius ->
-                                DropdownMenuItem(
-                                    text = { Text("Radius ${radius}dp") },
-                                    onClick = {
-                                        onSaveStyle(uiStyle.copy(buttonCornerRadiusDp = radius))
-                                        showSizeMenu = false
-                                    },
-                                )
+                            DropdownMenu(expanded = showTextMenu, onDismissRequest = { showTextMenu = false }) {
+                                UiStylePresets.textLabels.forEachIndexed { index, label ->
+                                    DropdownMenuItem(text = { Text(label) }, onClick = {
+                                        onSaveStyle(uiStyle.copy(textColorIndex = index, customTextColorArgb = null))
+                                        showTextMenu = false
+                                    })
+                                }
                             }
                         }
                     }
                 }
 
-                Text("Markdown styles")
-                stylePickerRow(
-                    title = "H3",
-                    currentSize = uiStyle.h3SizeSp,
-                    currentColorIndex = uiStyle.h3ColorIndex,
-                    onSizeSelected = { onSaveStyle(uiStyle.copy(h3SizeSp = it)) },
-                    onColorSelected = { onSaveStyle(uiStyle.copy(h3ColorIndex = it)) },
-                )
-                stylePickerRow(
-                    title = "H4",
-                    currentSize = uiStyle.h4SizeSp,
-                    currentColorIndex = uiStyle.h4ColorIndex,
-                    onSizeSelected = { onSaveStyle(uiStyle.copy(h4SizeSp = it)) },
-                    onColorSelected = { onSaveStyle(uiStyle.copy(h4ColorIndex = it)) },
-                )
-                stylePickerRow(
-                    title = "Body",
-                    currentSize = uiStyle.bodySizeSp,
-                    currentColorIndex = uiStyle.bodyColorIndex,
-                    onSizeSelected = { onSaveStyle(uiStyle.copy(bodySizeSp = it)) },
-                    onColorSelected = { onSaveStyle(uiStyle.copy(bodyColorIndex = it)) },
-                )
-                stylePickerRow(
-                    title = "List",
-                    currentSize = uiStyle.listSizeSp,
-                    currentColorIndex = uiStyle.listColorIndex,
-                    onSizeSelected = { onSaveStyle(uiStyle.copy(listSizeSp = it)) },
-                    onColorSelected = { onSaveStyle(uiStyle.copy(listColorIndex = it)) },
-                )
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Bold color")
-                    var boldMenu by remember { mutableStateOf(false) }
-                    Box {
-                        TextButton(shape = AppButtonShape, onClick = { boldMenu = true }) {
-                            Text(UiStylePresets.markdownEmphasisLabels.getOrElse(uiStyle.boldColorIndex) { "Base text" })
+                SurfaceCard {
+                    SectionTitle("Typography", "フォントと形状をまとめて調整")
+                    LabeledSettingRow("Font", "全体で使うフォントファミリー") {
+                        Box {
+                            TextButton(shape = AppButtonShape, onClick = { showFontMenu = true }) {
+                                Text(AppFontMode.fromId(uiStyle.fontModeId).label)
+                            }
+                            DropdownMenu(expanded = showFontMenu, onDismissRequest = { showFontMenu = false }) {
+                                AppFontMode.entries.forEach { mode ->
+                                    DropdownMenuItem(text = { Text(mode.label) }, onClick = {
+                                        onSaveStyle(uiStyle.copy(fontModeId = mode.id))
+                                        showFontMenu = false
+                                    })
+                                }
+                            }
                         }
-                        DropdownMenu(expanded = boldMenu, onDismissRequest = { boldMenu = false }) {
-                            UiStylePresets.markdownEmphasisLabels.forEachIndexed { index, label ->
-                                DropdownMenuItem(text = { Text(label) }, onClick = {
-                                    onSaveStyle(uiStyle.copy(boldColorIndex = index))
-                                    boldMenu = false
-                                })
+                    }
+                    LabeledSettingRow("Button radius", "ボタン形状の印象を調整") {
+                        Box {
+                            TextButton(shape = AppButtonShape, onClick = { showSizeMenu = true }) {
+                                Text("${uiStyle.buttonCornerRadiusDp}dp")
+                            }
+                            DropdownMenu(expanded = showSizeMenu, onDismissRequest = { showSizeMenu = false }) {
+                                listOf(0, 8, 16, 24).forEach { radius ->
+                                    DropdownMenuItem(
+                                        text = { Text("Radius ${radius}dp") },
+                                        onClick = {
+                                            onSaveStyle(uiStyle.copy(buttonCornerRadiusDp = radius))
+                                            showSizeMenu = false
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Italic color")
-                    var italicMenu by remember { mutableStateOf(false) }
-                    Box {
-                        TextButton(shape = AppButtonShape, onClick = { italicMenu = true }) {
-                            Text(UiStylePresets.markdownEmphasisLabels.getOrElse(uiStyle.italicColorIndex) { "Subtle" })
+
+                SurfaceCard {
+                    SectionTitle("Markdown styles", "見出し・本文・装飾の階層を設計")
+                    stylePickerRow(
+                        title = "H3",
+                        currentSize = uiStyle.h3SizeSp,
+                        currentColorIndex = uiStyle.h3ColorIndex,
+                        onSizeSelected = { onSaveStyle(uiStyle.copy(h3SizeSp = it)) },
+                        onColorSelected = { onSaveStyle(uiStyle.copy(h3ColorIndex = it)) },
+                    )
+                    stylePickerRow(
+                        title = "H4",
+                        currentSize = uiStyle.h4SizeSp,
+                        currentColorIndex = uiStyle.h4ColorIndex,
+                        onSizeSelected = { onSaveStyle(uiStyle.copy(h4SizeSp = it)) },
+                        onColorSelected = { onSaveStyle(uiStyle.copy(h4ColorIndex = it)) },
+                    )
+                    stylePickerRow(
+                        title = "Body",
+                        currentSize = uiStyle.bodySizeSp,
+                        currentColorIndex = uiStyle.bodyColorIndex,
+                        onSizeSelected = { onSaveStyle(uiStyle.copy(bodySizeSp = it)) },
+                        onColorSelected = { onSaveStyle(uiStyle.copy(bodyColorIndex = it)) },
+                    )
+                    stylePickerRow(
+                        title = "List",
+                        currentSize = uiStyle.listSizeSp,
+                        currentColorIndex = uiStyle.listColorIndex,
+                        onSizeSelected = { onSaveStyle(uiStyle.copy(listSizeSp = it)) },
+                        onColorSelected = { onSaveStyle(uiStyle.copy(listColorIndex = it)) },
+                    )
+                    LabeledSettingRow("Bold color", "強調テキスト（** **）の色") {
+                        var boldMenu by remember { mutableStateOf(false) }
+                        Box {
+                            TextButton(shape = AppButtonShape, onClick = { boldMenu = true }) {
+                                Text(UiStylePresets.markdownEmphasisLabels.getOrElse(uiStyle.boldColorIndex) { "Base text" })
+                            }
+                            DropdownMenu(expanded = boldMenu, onDismissRequest = { boldMenu = false }) {
+                                UiStylePresets.markdownEmphasisLabels.forEachIndexed { index, label ->
+                                    DropdownMenuItem(text = { Text(label) }, onClick = {
+                                        onSaveStyle(uiStyle.copy(boldColorIndex = index))
+                                        boldMenu = false
+                                    })
+                                }
+                            }
                         }
-                        DropdownMenu(expanded = italicMenu, onDismissRequest = { italicMenu = false }) {
-                            UiStylePresets.markdownEmphasisLabels.forEachIndexed { index, label ->
-                                DropdownMenuItem(text = { Text(label) }, onClick = {
-                                    onSaveStyle(uiStyle.copy(italicColorIndex = index))
-                                    italicMenu = false
-                                })
+                    }
+                    LabeledSettingRow("Italic color", "斜体テキスト（* *）の色") {
+                        var italicMenu by remember { mutableStateOf(false) }
+                        Box {
+                            TextButton(shape = AppButtonShape, onClick = { italicMenu = true }) {
+                                Text(UiStylePresets.markdownEmphasisLabels.getOrElse(uiStyle.italicColorIndex) { "Subtle" })
+                            }
+                            DropdownMenu(expanded = italicMenu, onDismissRequest = { italicMenu = false }) {
+                                UiStylePresets.markdownEmphasisLabels.forEachIndexed { index, label ->
+                                    DropdownMenuItem(text = { Text(label) }, onClick = {
+                                        onSaveStyle(uiStyle.copy(italicColorIndex = index))
+                                        italicMenu = false
+                                    })
+                                }
                             }
                         }
                     }
@@ -889,7 +907,7 @@ private fun AppFormattingGuideDialog(
                     Text("Reset all to default")
                 }
 
-                Text("Preview")
+                SectionTitle("Preview", "設定後の見え方をすぐ確認")
                 SurfaceCard {
                     MarkdownTokenText(
                         markdown = "### Photosynthesis\n#### Light reaction\n**Chlorophyll** captures *photon energy*\n- ATP synthesis\n- NADPH generation",
@@ -898,12 +916,12 @@ private fun AppFormattingGuideDialog(
                 }
 
                 formattingExamples.forEach { item ->
-                    Text(item.description)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(item.description, style = MaterialTheme.typography.bodyMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         TextButton(shape = AppButtonShape, onClick = { onCopy(item.label.lowercase(), item.snippet) }) {
                             Text("Copy ${item.label}")
                         }
-                        Text(item.snippet)
+                        Text(item.snippet, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
