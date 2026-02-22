@@ -14,9 +14,11 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 private enum class StyleToken {
     Heading3,
+    Heading4,
     Paragraph,
     ListItem,
     Strong,
@@ -28,6 +30,7 @@ fun MarkdownTokenText(
     markdown: String,
     modifier: Modifier = Modifier,
     textAlign: TextAlign = TextAlign.Start,
+    uiStyle: UiStyleSettings = UiStyleSettings(),
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         markdown.lines().forEach { rawLine ->
@@ -35,14 +38,15 @@ fun MarkdownTokenText(
             if (line.isBlank()) return@forEach
 
             val (token, text) = when {
+                line.startsWith("#### ") -> StyleToken.Heading4 to line.removePrefix("#### ")
                 line.startsWith("### ") -> StyleToken.Heading3 to line.removePrefix("### ")
                 line.startsWith("- ") -> StyleToken.ListItem to "• ${line.removePrefix("- ")}"
                 else -> StyleToken.Paragraph to line
             }
 
             Text(
-                text = buildInlineMarkdown(text),
-                style = tokenStyle(token),
+                text = buildInlineMarkdown(text, uiStyle),
+                style = tokenStyle(token, uiStyle),
                 textAlign = textAlign,
                 modifier = Modifier.padding(bottom = 6.dp),
             )
@@ -51,15 +55,30 @@ fun MarkdownTokenText(
 }
 
 @Composable
-private fun tokenStyle(token: StyleToken) = when (token) {
-    StyleToken.Heading3 -> MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
-    StyleToken.Paragraph -> MaterialTheme.typography.bodyLarge
-    StyleToken.ListItem -> MaterialTheme.typography.bodyLarge
+private fun tokenStyle(token: StyleToken, uiStyle: UiStyleSettings) = when (token) {
+    StyleToken.Heading3 -> MaterialTheme.typography.headlineSmall.copy(
+        fontWeight = FontWeight.Bold,
+        fontSize = uiStyle.h3SizeSp.sp,
+        color = UiStylePresets.markdownEmphasisColors.getOrElse(uiStyle.h3ColorIndex) { MaterialTheme.colorScheme.onSurface },
+    )
+    StyleToken.Heading4 -> MaterialTheme.typography.titleLarge.copy(
+        fontWeight = FontWeight.SemiBold,
+        fontSize = uiStyle.h4SizeSp.sp,
+        color = UiStylePresets.markdownEmphasisColors.getOrElse(uiStyle.h4ColorIndex) { MaterialTheme.colorScheme.onSurface },
+    )
+    StyleToken.Paragraph -> MaterialTheme.typography.bodyLarge.copy(
+        fontSize = uiStyle.bodySizeSp.sp,
+        color = UiStylePresets.markdownEmphasisColors.getOrElse(uiStyle.bodyColorIndex) { MaterialTheme.colorScheme.onSurface },
+    )
+    StyleToken.ListItem -> MaterialTheme.typography.bodyLarge.copy(
+        fontSize = uiStyle.listSizeSp.sp,
+        color = UiStylePresets.markdownEmphasisColors.getOrElse(uiStyle.listColorIndex) { MaterialTheme.colorScheme.onSurface },
+    )
     StyleToken.Strong -> MaterialTheme.typography.bodyLarge
     StyleToken.Emphasis -> MaterialTheme.typography.bodyLarge
 }
 
-private fun buildInlineMarkdown(text: String): AnnotatedString {
+private fun buildInlineMarkdown(text: String, uiStyle: UiStyleSettings): AnnotatedString {
     val strong = Regex("\\*\\*(.+?)\\*\\*")
     val em = Regex("\\*(.+?)\\*")
 
@@ -81,8 +100,14 @@ private fun buildInlineMarkdown(text: String): AnnotatedString {
             val content = next.groupValues[1]
             pushStyle(
                 when (token) {
-                    StyleToken.Strong -> SpanStyle(fontWeight = FontWeight.Bold)
-                    StyleToken.Emphasis -> SpanStyle(fontStyle = FontStyle.Italic)
+                    StyleToken.Strong -> SpanStyle(
+                        fontWeight = FontWeight.Bold,
+                        color = UiStylePresets.markdownEmphasisColors.getOrElse(uiStyle.boldColorIndex) { androidx.compose.ui.graphics.Color.Unspecified },
+                    )
+                    StyleToken.Emphasis -> SpanStyle(
+                        fontStyle = FontStyle.Italic,
+                        color = UiStylePresets.markdownEmphasisColors.getOrElse(uiStyle.italicColorIndex) { androidx.compose.ui.graphics.Color.Unspecified },
+                    )
                     else -> SpanStyle()
                 },
             )

@@ -15,15 +15,16 @@
   - Markdownカードは `---` front matter + `## Front` / `## Back` + `===` 区切りを標準としています。
   - パーサーは後方互換のため `### Front` / `### Back` も受理します。
 - Backup/Restore のエクスポート形式は Markdown（`ingrain-backup.md`）です。
-- Renderer は CSS ではなくスタイルトークン（heading3 / paragraph / list / strong / emphasis）で表示します。
+- Renderer は CSS ではなくスタイルトークン（heading3 / heading4 / paragraph / list / strong / emphasis）で表示し、App formatting guide の設定（サイズ/カラー）を反映します。
 
 - Add Card の `Templates` では、`Markdown` / `JSON Lines` を選択して `Copy template` できます。
-- 書式ガイドは Decks 画面右上 `Menu` から開く「App formatting guide」に集約しました（H3/Bold/Italic/List の説明 + コピー）。
+- 書式ガイドは Decks 画面右上 `Menu` から開く「App formatting guide」に集約しています。テーマ（Primary/Background/Surface/Text）、フォント（System default / Helvetica preferred）、Markdown書式（H3/H4/Body/List/Bold/Italic）のサイズ・色を変更でき、ライブプレビュー/リセットも利用できます。
 
 ## This session (latest)
-- `Screens.kt` をリファクタリングし、Decks画面の書式ガイドダイアログを `AppFormattingGuideDialog` に分離しました。
-- 書式サンプルを定数の重複定義から `formattingExamples` リスト（`FormattingExample`）へ統合し、表示とコピー処理をループで共通化しました。
-- HANDOFF 全体を現仕様へ更新し、古い `###` 固定前提の記述を削除/修正しました。
+- 直近のスタイル機能追加をリファクタリングし、設定モデル/レンダラ/UIの責務を整理しました。
+- `UiStyleSettings` に `bodyColorIndex` を追加し、Bodyテキストの色設定がUIとレンダラで一貫して反映されるよう修正しました。
+- `StudyScreen` への `uiStyleStore` 受け渡しを維持し、front/backのMarkdown描画が常に現在のグローバルスタイルを参照する状態を確認しました。
+- `App formatting guide` のフォント選択で `AppFontMode` の直接参照へ整理し、可読性を改善しました。
 
 ## Next steps / plan
 1. Markdown card syntax v1 ドキュメントを最終固定する。

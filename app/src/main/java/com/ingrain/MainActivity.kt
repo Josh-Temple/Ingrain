@@ -18,6 +18,7 @@ import com.ingrain.ui.IngrainApp
 import com.ingrain.ui.UiStyleSettingsStore
 import com.ingrain.ui.applyUiStyle
 import com.ingrain.ui.appButtonShape
+import com.ingrain.ui.appTypography
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,6 +51,7 @@ class MainActivity : ComponentActivity() {
             MaterialTheme(
                 colorScheme = applyUiStyle(premiumDark, uiStyle),
                 shapes = appShapes,
+                typography = appTypography(uiStyle),
             ) {
                 IngrainApp(repo = repo, settingsStore = settingsStore, uiStyleStore = uiStyleStore)
             }

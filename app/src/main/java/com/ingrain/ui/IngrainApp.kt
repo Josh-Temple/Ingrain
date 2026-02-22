@@ -62,6 +62,7 @@ fun IngrainApp(repo: IngrainRepository, settingsStore: SchedulerSettingsStore, u
                 deckId = entry.arguments?.getLong("deckId") ?: 0L,
                 repo = repo,
                 settingsStore = settingsStore,
+                uiStyleStore = uiStyleStore,
                 onEditCard = { nav.navigate("edit-card/$it") },
             )
         }
