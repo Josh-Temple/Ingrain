@@ -25,6 +25,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
@@ -327,7 +328,13 @@ fun DeckListScreen(
             TopAppBar(
                 title = { Text("Decks") },
                 actions = {
-                    TextButton(shape = AppButtonShape, onClick = { showFormattingMenu = true }) { Text("Menu") }
+                    IconButton(onClick = { showFormattingMenu = true }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Menu",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
                 },
             )
         },
