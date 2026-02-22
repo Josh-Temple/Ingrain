@@ -17,32 +17,41 @@
 - 学習画面の `STUDY` タグ表示を廃止し、デッキ名をヘッダー位置に表示するよう変更しました。
 - 学習画面で上方向スワイプすると、表示中カードの編集画面（`Edit Card`）に遷移できるようにしました。
 
-- Markdown + YAML front matter を採用する前提で設計方針を再点検しました。
-  - カード境界は `---` ではなく `===` を推奨（front matterとの衝突回避）。
-  - スタイル適用は CSS ではなく、トークンベース（例: heading3 / strong）のComposeマッピング方式を推奨。
-  - 方針として「入力はMarkdown、内部は構造化（AST/JSON）で描画」が保守性・拡張性の観点で妥当。
-- 他AI（GPTs / Gems）へカード作成を依頼するための指示文テンプレートを `templates/ai_card_writer_prompt.md` として追加しました。
+- Markdown + YAML front matter を実装しました。
+  - 取り込み時、`---` front matter + `### Front` / `### Back` を持つMarkdownカードを解析できるようにしました。
+  - 複数カード区切りは `===` を採用しました（`---` との衝突回避）。
+  - `BulkImportParser` を追加し、Markdown形式を優先判定しつつ JSON Lines も後方互換で取り込めるようにしました。
+- Backup/Restore を更新しました。
+  - エクスポート形式を Markdown に変更（`ingrain-backup.md`、カード区切りは `===`）。
+  - インポートは Markdown / JSONL の両対応を維持しました。
+- スタイル方針を反映しました。
+  - CSSではなくスタイルトークン（heading3 / paragraph / list / strong / emphasis）を使う `MarkdownTokenText` を追加し、Study表示で利用するようにしました。
 
-## Next steps / plan (no implementation yet)
-1. Markdown card syntax v1 を仕様として固定する。
-   - 必須: YAML front matter (`deck`, `tags`) + `### Front` / `### Back`
-   - 複数カード区切り: `===`
-2. Parser/Validator 仕様を定義する。
-   - 必須セクション不足、front matter不正、空Front/Backの検知
-   - 行番号付きエラーメッセージ方針
-3. Renderer方針を確定する。
-   - Markdownサブセット（h3, bold, italic, list, paragraph）
-   - Style token → MaterialTheme mapping
+- 他AI（GPTs / Gems）へカード作成を依頼するための指示文テンプレートを `templates/ai_card_writer_prompt.md` として追加しました。
+- テンプレート文書 `templates/card_note_template.md` を Markdown + YAML front matter 仕様へ更新しました。
+
+- Markdownパーサーを再点検してリファクタリングしました。
+  - UTF-8 BOM付き入力を吸収し、空入力/空ブロックの扱いを明確化しました。
+  - YAML front matter で `tags` キーを必須化し、仕様（deck+tags必須）とのズレを修正しました。
+  - `BulkImportParser` の判定を調整し、先頭が `{` の場合はJSON Linesとして優先解釈するようにしました。
+- テストを補強しました。
+  - `tags` 欠落時にエラーとなるケースを `MarkdownCardsParserTest` に追加しました。
+- `templates/ai_card_writer_prompt.md` を再確認し、`deck`/`tags` を必須・引用符付きで出力するテンプレートへ揃えました。
+
+## Next steps / plan (partially implemented)
+1. Markdown card syntax v1 を最終固定する。
+   - 現在実装: YAML front matter (`deck`, `tags`) + `### Front` / `### Back` + `===`
+   - 残タスク: エラー文言/行番号精度の調整、仕様ドキュメントの完全同期
+2. Parser/Validator を強化する。
+   - 現在実装: 必須セクション不足/不正front matter/空Front/Backの検知
+   - 残タスク: より厳密なYAML（エスケープ・複雑構造）対応
+3. Renderer方針を拡張する。
+   - 現在実装: Markdownサブセット（h3, bold, italic, list, paragraph）
+   - 残タスク: 複数段落間スペーシング、コード/引用など拡張可否
 4. Data migration方針を確定する。
-   - 既存 `front/back` との後方互換
-   - 将来的な AST/JSON キャッシュ導入可否
-5. Import/Export拡張を設計する。
-   - JSONL現行形式との互換保持
-   - Markdownソース出力・再取込仕様
-6. 他AI用プロンプト運用を整備する。
-   - `templates/ai_card_writer_prompt.md` をREADMEから参照可能にするか検討
-   - Deck/Tag命名規則のガイドを追記
+   - 現状: DBは従来どおり `front/back` 文字列保持、Import/ExportでMarkdown入出力
+   - 残タスク: AST/JSON キャッシュの導入判断
 
 ## Notes for next session
 - Material3 の `ExposedDropdownMenuBox` などへ切り替えると、`Target deck` の選択UIをさらにスケールしやすくできます（現状はボタン一覧）。
-- この環境では Gradle 実行時に JDK/Gradle 互換性エラー（Unsupported class file major version 69）が出るため、CI かローカルJDK整備済み環境でのビルド確認が必要です。
+- この環境では Gradle 実行時に JDK/Gradle 互換性エラー（Unsupported class file major version 69）が出る場合があるため、CI かローカルJDK整備済み環境でのビルド確認が必要です。

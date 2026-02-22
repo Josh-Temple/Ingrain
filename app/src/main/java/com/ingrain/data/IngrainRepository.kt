@@ -205,6 +205,31 @@ class IngrainRepository(private val db: AppDatabase) {
         return ImportSummary(added, skipped, failed)
     }
 
+
+    suspend fun exportDeckMarkdown(deckId: Long): String {
+        val deck = db.deckDao().getById(deckId) ?: return ""
+        return db.cardDao().exportByDeck(deckId).joinToString("\n===\n") { card ->
+            val tags = runCatching { json.decodeFromString<List<String>>(card.tagsJson) }.getOrDefault(emptyList())
+            buildString {
+                appendLine("---")
+                appendLine("deck: ${deck.name}")
+                if (tags.isEmpty()) {
+                    appendLine("tags: []")
+                } else {
+                    appendLine("tags:")
+                    tags.forEach { appendLine("  - $it") }
+                }
+                appendLine("---")
+                appendLine()
+                appendLine("### Front")
+                appendLine(card.front)
+                appendLine()
+                appendLine("### Back")
+                append(card.back)
+            }
+        }
+    }
+
     suspend fun exportDeckJsonLines(deckId: Long): String {
         val deck = db.deckDao().getById(deckId) ?: return ""
         return db.cardDao().exportByDeck(deckId).joinToString("\n") { card ->

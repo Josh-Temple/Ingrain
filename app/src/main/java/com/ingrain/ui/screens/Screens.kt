@@ -70,11 +70,12 @@ import androidx.compose.ui.unit.dp
 import com.ingrain.data.CardEntity
 import com.ingrain.data.DeckEntity
 import com.ingrain.data.IngrainRepository
-import com.ingrain.importing.JsonLinesParser
+import com.ingrain.importing.BulkImportParser
 import com.ingrain.importing.ParseResult
 import com.ingrain.scheduler.Scheduler
 import com.ingrain.scheduler.SchedulerSettings
 import com.ingrain.scheduler.SchedulerSettingsStore
+import com.ingrain.ui.MarkdownTokenText
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
@@ -626,13 +627,13 @@ fun ImportScreen(deckId: Long?, repo: IngrainRepository) {
                 bulkText = bulkText,
                 onBulkTextChange = {
                     bulkText = it
-                    preview = JsonLinesParser.parse(it)
+                    preview = BulkImportParser.parse(it)
                 },
                 preview = preview,
-                onPreview = { preview = JsonLinesParser.parse(bulkText) },
+                onPreview = { preview = BulkImportParser.parse(bulkText) },
                 onImport = {
                     scope.launch {
-                        val result = repo.importParsed(JsonLinesParser.parse(bulkText), System.currentTimeMillis())
+                        val result = repo.importParsed(BulkImportParser.parse(bulkText), System.currentTimeMillis())
                         message = "added=${result.added}, skipped=${result.skipped}, failed=${result.failed}"
                     }
                 },
@@ -816,12 +817,12 @@ private fun BulkImportSection(
     onPreview: () -> Unit,
     onImport: () -> Unit,
 ) {
-    Text("Bulk add with JSON Lines")
+    Text("Bulk add with Markdown/YAML or JSON Lines")
     AppTextField(
         value = bulkText,
         onValueChange = onBulkTextChange,
         modifier = Modifier.fillMaxWidth(),
-        label = { Text("Paste JSON Lines") },
+        label = { Text("Paste Markdown cards or JSON Lines") },
     )
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Button(shape = AppButtonShape, onClick = onPreview) { Text("Preview") }
@@ -943,11 +944,10 @@ fun StudyScreen(
                         textAlign = TextAlign.Center,
                     )
                 } else {
-                    Text(
-                        text = currentCard.front,
-                        style = MaterialTheme.typography.displaySmall,
+                    MarkdownTokenText(
+                        markdown = currentCard.front,
                         textAlign = TextAlign.Center,
-                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     HorizontalDivider(
@@ -960,11 +960,10 @@ fun StudyScreen(
                     Spacer(modifier = Modifier.height(26.dp))
 
                     if (showAnswer) {
-                        Text(
-                            text = currentCard.back,
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        MarkdownTokenText(
+                            markdown = currentCard.back,
                             textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 }
@@ -1224,7 +1223,7 @@ fun BackupScreen(deckId: Long, repo: IngrainRepository) {
             runCatching {
                 when (operation) {
                     FileOperation.EXPORT -> {
-                        val content = repo.exportDeckJsonLines(deckId)
+                        val content = repo.exportDeckMarkdown(deckId)
                         context.contentResolver.openOutputStream(uri)?.use { output ->
                             output.write(content.toByteArray())
                         }
@@ -1236,7 +1235,7 @@ fun BackupScreen(deckId: Long, repo: IngrainRepository) {
                             ?.bufferedReader()
                             ?.use { it.readText() }
                             .orEmpty()
-                        val summary = repo.importParsed(JsonLinesParser.parse(text), System.currentTimeMillis())
+                        val summary = repo.importParsed(BulkImportParser.parse(text), System.currentTimeMillis())
                         message = "Import done: added=${summary.added}, skipped=${summary.skipped}, failed=${summary.failed}"
                     }
                 }
@@ -1255,10 +1254,10 @@ fun BackupScreen(deckId: Long, repo: IngrainRepository) {
         ) {
             SurfaceCard {
                 Text("Data portability", style = MaterialTheme.typography.titleMedium)
-                Text("Export your deck or import from a JSONL backup.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Export your deck or import from Markdown/JSONL backup.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Button(shape = AppButtonShape, onClick = {
                     pendingOperation = FileOperation.EXPORT
-                    createLauncher.launch("ingrain-backup.jsonl")
+                    createLauncher.launch("ingrain-backup.md")
                 }, modifier = Modifier.fillMaxWidth()) {
                     Text("Export deck")
                 }
