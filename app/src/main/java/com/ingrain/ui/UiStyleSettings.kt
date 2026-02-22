@@ -49,6 +49,8 @@ data class UiStyleSettings(
     val customBackgroundColorArgb: Int? = null,
     val customSurfaceColorArgb: Int? = null,
     val customTextColorArgb: Int? = null,
+    val bodyUsesThemeTextColor: Boolean = false,
+    val showStudyRevealGuide: Boolean = true,
 )
 
 object UiStylePresets {
@@ -121,6 +123,8 @@ class UiStyleSettingsStore(private val context: Context) {
         val customBackgroundColorArgb = intPreferencesKey("custom_background_color_argb")
         val customSurfaceColorArgb = intPreferencesKey("custom_surface_color_argb")
         val customTextColorArgb = intPreferencesKey("custom_text_color_argb")
+        val bodyUsesThemeTextColor = intPreferencesKey("body_uses_theme_text_color")
+        val showStudyRevealGuide = intPreferencesKey("show_study_reveal_guide")
     }
 
     val settings: Flow<UiStyleSettings> = context.uiStyleDataStore.data.map { p ->
@@ -146,6 +150,8 @@ class UiStyleSettingsStore(private val context: Context) {
             customBackgroundColorArgb = p[Keys.customBackgroundColorArgb],
             customSurfaceColorArgb = p[Keys.customSurfaceColorArgb],
             customTextColorArgb = p[Keys.customTextColorArgb],
+            bodyUsesThemeTextColor = (p[Keys.bodyUsesThemeTextColor] ?: 0) == 1,
+            showStudyRevealGuide = (p[Keys.showStudyRevealGuide] ?: 1) == 1,
         )
     }
 
@@ -172,6 +178,8 @@ class UiStyleSettingsStore(private val context: Context) {
             settings.customBackgroundColorArgb?.let { p[Keys.customBackgroundColorArgb] = it } ?: p.remove(Keys.customBackgroundColorArgb)
             settings.customSurfaceColorArgb?.let { p[Keys.customSurfaceColorArgb] = it } ?: p.remove(Keys.customSurfaceColorArgb)
             settings.customTextColorArgb?.let { p[Keys.customTextColorArgb] = it } ?: p.remove(Keys.customTextColorArgb)
+            p[Keys.bodyUsesThemeTextColor] = if (settings.bodyUsesThemeTextColor) 1 else 0
+            p[Keys.showStudyRevealGuide] = if (settings.showStudyRevealGuide) 1 else 0
         }
     }
 }
