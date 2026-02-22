@@ -76,6 +76,7 @@ import com.ingrain.importing.ParseResult
 import com.ingrain.scheduler.Scheduler
 import com.ingrain.scheduler.SchedulerSettings
 import com.ingrain.scheduler.SchedulerSettingsStore
+import com.ingrain.ui.AppFontMode
 import com.ingrain.ui.MarkdownTokenText
 import com.ingrain.ui.UiStylePresets
 import com.ingrain.ui.UiStyleSettings
@@ -97,6 +98,7 @@ private val addTemplates = listOf(
 
 private val formattingExamples = listOf(
     FormattingExample("H3", "H3 heading: start with ###", "### Photosynthesis"),
+    FormattingExample("H4", "H4 heading: start with ####", "#### Light reaction"),
     FormattingExample("Bold", "Bold: wrap with **double asterisks**", "**Key term**"),
     FormattingExample("Italic", "Italic: wrap with *single asterisks*", "*Nuance*"),
     FormattingExample("List", "List: start each line with -", "- Item 1\n- Item 2"),
@@ -555,15 +557,68 @@ private fun AppFormattingGuideDialog(
 ) {
     var showAccentMenu by remember { mutableStateOf(false) }
     var showSizeMenu by remember { mutableStateOf(false) }
+    var showBackgroundMenu by remember { mutableStateOf(false) }
+    var showSurfaceMenu by remember { mutableStateOf(false) }
+    var showTextMenu by remember { mutableStateOf(false) }
+    var showFontMenu by remember { mutableStateOf(false) }
+
+    @Composable
+    fun stylePickerRow(
+        title: String,
+        currentSize: Int,
+        currentColorIndex: Int,
+        onSizeSelected: (Int) -> Unit,
+        onColorSelected: (Int) -> Unit,
+    ) {
+        var sizeMenu by remember { mutableStateOf(false) }
+        var colorMenu by remember { mutableStateOf(false) }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(title)
+            Box {
+                TextButton(shape = AppButtonShape, onClick = { sizeMenu = true }) { Text("${currentSize}sp") }
+                DropdownMenu(expanded = sizeMenu, onDismissRequest = { sizeMenu = false }) {
+                    UiStylePresets.markdownSizeOptions.forEach { size ->
+                        DropdownMenuItem(
+                            text = { Text("${size}sp") },
+                            onClick = {
+                                onSizeSelected(size)
+                                sizeMenu = false
+                            },
+                        )
+                    }
+                }
+            }
+            Box {
+                TextButton(shape = AppButtonShape, onClick = { colorMenu = true }) {
+                    Text(UiStylePresets.markdownEmphasisLabels.getOrElse(currentColorIndex) { "Base text" })
+                }
+                DropdownMenu(expanded = colorMenu, onDismissRequest = { colorMenu = false }) {
+                    UiStylePresets.markdownEmphasisLabels.forEachIndexed { index, label ->
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            onClick = {
+                                onColorSelected(index)
+                                colorMenu = false
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("App formatting guide") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+            ) {
                 Text("These Markdown styles are shared across all decks and cards.")
-                Text("Global UI style (applies to all decks)")
+                Text("Theme")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Accent:")
+                    Text("Primary:")
                     Box {
                         TextButton(shape = AppButtonShape, onClick = { showAccentMenu = true }) {
                             Text(UiStylePresets.accentLabels.getOrElse(uiStyle.accentIndex) { "Blue" })
@@ -582,7 +637,73 @@ private fun AppFormattingGuideDialog(
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Button size:")
+                    Text("Background:")
+                    Box {
+                        TextButton(shape = AppButtonShape, onClick = { showBackgroundMenu = true }) {
+                            Text(UiStylePresets.surfaceBackgroundLabels.getOrElse(uiStyle.backgroundColorIndex) { "Navy" })
+                        }
+                        DropdownMenu(expanded = showBackgroundMenu, onDismissRequest = { showBackgroundMenu = false }) {
+                            UiStylePresets.surfaceBackgroundLabels.forEachIndexed { index, label ->
+                                DropdownMenuItem(text = { Text(label) }, onClick = {
+                                    onSaveStyle(uiStyle.copy(backgroundColorIndex = index))
+                                    showBackgroundMenu = false
+                                })
+                            }
+                        }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Surface:")
+                    Box {
+                        TextButton(shape = AppButtonShape, onClick = { showSurfaceMenu = true }) {
+                            Text(UiStylePresets.surfaceBackgroundLabels.getOrElse(uiStyle.surfaceColorIndex) { "Deep blue" })
+                        }
+                        DropdownMenu(expanded = showSurfaceMenu, onDismissRequest = { showSurfaceMenu = false }) {
+                            UiStylePresets.surfaceBackgroundLabels.forEachIndexed { index, label ->
+                                DropdownMenuItem(text = { Text(label) }, onClick = {
+                                    onSaveStyle(uiStyle.copy(surfaceColorIndex = index))
+                                    showSurfaceMenu = false
+                                })
+                            }
+                        }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Text:")
+                    Box {
+                        TextButton(shape = AppButtonShape, onClick = { showTextMenu = true }) {
+                            Text(UiStylePresets.textLabels.getOrElse(uiStyle.textColorIndex) { "Ice" })
+                        }
+                        DropdownMenu(expanded = showTextMenu, onDismissRequest = { showTextMenu = false }) {
+                            UiStylePresets.textLabels.forEachIndexed { index, label ->
+                                DropdownMenuItem(text = { Text(label) }, onClick = {
+                                    onSaveStyle(uiStyle.copy(textColorIndex = index))
+                                    showTextMenu = false
+                                })
+                            }
+                        }
+                    }
+                }
+
+                Text("Typography")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Font:")
+                    Box {
+                        TextButton(shape = AppButtonShape, onClick = { showFontMenu = true }) {
+                            Text(AppFontMode.fromId(uiStyle.fontModeId).label)
+                        }
+                        DropdownMenu(expanded = showFontMenu, onDismissRequest = { showFontMenu = false }) {
+                            AppFontMode.entries.forEach { mode ->
+                                DropdownMenuItem(text = { Text(mode.label) }, onClick = {
+                                    onSaveStyle(uiStyle.copy(fontModeId = mode.id))
+                                    showFontMenu = false
+                                })
+                            }
+                        }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Button radius:")
                     Box {
                         TextButton(shape = AppButtonShape, onClick = { showSizeMenu = true }) {
                             Text("${uiStyle.buttonCornerRadiusDp}dp")
@@ -600,6 +721,84 @@ private fun AppFormattingGuideDialog(
                         }
                     }
                 }
+
+                Text("Markdown styles")
+                stylePickerRow(
+                    title = "H3",
+                    currentSize = uiStyle.h3SizeSp,
+                    currentColorIndex = uiStyle.h3ColorIndex,
+                    onSizeSelected = { onSaveStyle(uiStyle.copy(h3SizeSp = it)) },
+                    onColorSelected = { onSaveStyle(uiStyle.copy(h3ColorIndex = it)) },
+                )
+                stylePickerRow(
+                    title = "H4",
+                    currentSize = uiStyle.h4SizeSp,
+                    currentColorIndex = uiStyle.h4ColorIndex,
+                    onSizeSelected = { onSaveStyle(uiStyle.copy(h4SizeSp = it)) },
+                    onColorSelected = { onSaveStyle(uiStyle.copy(h4ColorIndex = it)) },
+                )
+                stylePickerRow(
+                    title = "Body",
+                    currentSize = uiStyle.bodySizeSp,
+                    currentColorIndex = uiStyle.bodyColorIndex,
+                    onSizeSelected = { onSaveStyle(uiStyle.copy(bodySizeSp = it)) },
+                    onColorSelected = { onSaveStyle(uiStyle.copy(bodyColorIndex = it)) },
+                )
+                stylePickerRow(
+                    title = "List",
+                    currentSize = uiStyle.listSizeSp,
+                    currentColorIndex = uiStyle.listColorIndex,
+                    onSizeSelected = { onSaveStyle(uiStyle.copy(listSizeSp = it)) },
+                    onColorSelected = { onSaveStyle(uiStyle.copy(listColorIndex = it)) },
+                )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Bold color")
+                    var boldMenu by remember { mutableStateOf(false) }
+                    Box {
+                        TextButton(shape = AppButtonShape, onClick = { boldMenu = true }) {
+                            Text(UiStylePresets.markdownEmphasisLabels.getOrElse(uiStyle.boldColorIndex) { "Base text" })
+                        }
+                        DropdownMenu(expanded = boldMenu, onDismissRequest = { boldMenu = false }) {
+                            UiStylePresets.markdownEmphasisLabels.forEachIndexed { index, label ->
+                                DropdownMenuItem(text = { Text(label) }, onClick = {
+                                    onSaveStyle(uiStyle.copy(boldColorIndex = index))
+                                    boldMenu = false
+                                })
+                            }
+                        }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Italic color")
+                    var italicMenu by remember { mutableStateOf(false) }
+                    Box {
+                        TextButton(shape = AppButtonShape, onClick = { italicMenu = true }) {
+                            Text(UiStylePresets.markdownEmphasisLabels.getOrElse(uiStyle.italicColorIndex) { "Subtle" })
+                        }
+                        DropdownMenu(expanded = italicMenu, onDismissRequest = { italicMenu = false }) {
+                            UiStylePresets.markdownEmphasisLabels.forEachIndexed { index, label ->
+                                DropdownMenuItem(text = { Text(label) }, onClick = {
+                                    onSaveStyle(uiStyle.copy(italicColorIndex = index))
+                                    italicMenu = false
+                                })
+                            }
+                        }
+                    }
+                }
+
+                TextButton(shape = AppButtonShape, onClick = { onSaveStyle(UiStyleSettings()) }) {
+                    Text("Reset all to default")
+                }
+
+                Text("Preview")
+                SurfaceCard {
+                    MarkdownTokenText(
+                        markdown = "### Photosynthesis\n#### Light reaction\n**Chlorophyll** captures *photon energy*\n- ATP synthesis\n- NADPH generation",
+                        uiStyle = uiStyle,
+                    )
+                }
+
                 formattingExamples.forEach { item ->
                     Text(item.description)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -616,6 +815,7 @@ private fun AppFormattingGuideDialog(
         },
     )
 }
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1008,10 +1208,12 @@ fun StudyScreen(
     deckId: Long,
     repo: IngrainRepository,
     settingsStore: SchedulerSettingsStore,
+    uiStyleStore: UiStyleSettingsStore,
     onEditCard: (Long) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val schedulerSettings by settingsStore.settings.collectAsState(initial = SchedulerSettings())
+    val uiStyle by uiStyleStore.settings.collectAsState(initial = UiStyleSettings())
     var card by remember { mutableStateOf<CardEntity?>(null) }
     var showAnswer by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
@@ -1113,6 +1315,7 @@ fun StudyScreen(
                         markdown = currentCard.front,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth(),
+                        uiStyle = uiStyle,
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     HorizontalDivider(
@@ -1129,6 +1332,7 @@ fun StudyScreen(
                             markdown = currentCard.back,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth(),
+                            uiStyle = uiStyle,
                         )
                     }
                 }
