@@ -28,7 +28,7 @@ object Routes {
 }
 
 @Composable
-fun IngrainApp(repo: IngrainRepository, settingsStore: SchedulerSettingsStore) {
+fun IngrainApp(repo: IngrainRepository, settingsStore: SchedulerSettingsStore, uiStyleStore: UiStyleSettingsStore) {
     val nav = rememberNavController()
     NavHost(navController = nav, startDestination = Routes.DECKS) {
         composable(Routes.DECKS) {
@@ -37,6 +37,7 @@ fun IngrainApp(repo: IngrainRepository, settingsStore: SchedulerSettingsStore) {
                 onStudyDeck = { nav.navigate("study/$it") },
                 onEditDeck = { nav.navigate("detail/$it") },
                 onAddCard = { nav.navigate(Routes.IMPORT_GLOBAL) },
+                uiStyleStore = uiStyleStore,
             )
         }
         composable(Routes.DETAIL, arguments = listOf(navArgument("deckId") { type = NavType.LongType })) { entry ->
