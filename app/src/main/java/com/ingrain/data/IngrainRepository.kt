@@ -221,10 +221,10 @@ class IngrainRepository(private val db: AppDatabase) {
                 }
                 appendLine("---")
                 appendLine()
-                appendLine("### Front")
+                appendLine("## Front")
                 appendLine(card.front)
                 appendLine()
-                appendLine("### Back")
+                appendLine("## Back")
                 append(card.back)
             }
         }

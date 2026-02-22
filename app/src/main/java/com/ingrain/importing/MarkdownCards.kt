@@ -75,9 +75,9 @@ object MarkdownCardsParser {
 
         val bodyLines = lines.subList(frontMatterEnd + 1, lines.size)
         val front = extractSection("Front", bodyLines)
-            ?: return ParseResult.Error(block.startLine, "### Front section is required", lines.joinToString("\n"))
+            ?: return ParseResult.Error(block.startLine, "## Front or ### Front section is required", lines.joinToString("\n"))
         val back = extractSection("Back", bodyLines)
-            ?: return ParseResult.Error(block.startLine, "### Back section is required", lines.joinToString("\n"))
+            ?: return ParseResult.Error(block.startLine, "## Back or ### Back section is required", lines.joinToString("\n"))
 
         if (front.isBlank()) return ParseResult.Error(block.startLine, "Front content is empty", lines.joinToString("\n"))
         if (back.isBlank()) return ParseResult.Error(block.startLine, "Back content is empty", lines.joinToString("\n"))
@@ -138,15 +138,15 @@ object MarkdownCardsParser {
     }
 
     private fun extractSection(name: String, body: List<String>): String? {
-        val header = "### $name"
-        val startIndex = body.indexOfFirst { it.trim() == header }
+        val acceptedHeaders = setOf("## $name", "### $name")
+        val startIndex = body.indexOfFirst { acceptedHeaders.contains(it.trim()) }
         if (startIndex == -1) return null
 
         val content = mutableListOf<String>()
         for (i in startIndex + 1 until body.size) {
-            val line = body[i]
-            if (line.trim().startsWith("### ")) break
-            content += line
+            val trimmed = body[i].trim()
+            if (trimmed.startsWith("## ") || trimmed.startsWith("### ")) break
+            content += body[i]
         }
         return content.joinToString("\n").trim()
     }

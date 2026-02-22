@@ -58,7 +58,27 @@ class MarkdownCardsParserTest {
 
         val result = MarkdownCardsParser.parse(input).single()
         assertTrue(result is ParseResult.Error)
-        assertTrue((result as ParseResult.Error).message.contains("### Back"))
+        assertTrue((result as ParseResult.Error).message.contains("Back"))
+    }
+
+
+    @Test
+    fun parse_markdownCards_accepts_h2_sections() {
+        val input = """
+            ---
+            deck: Biology
+            tags: [exam]
+            ---
+
+            ## Front
+            What is ATP?
+
+            ## Back
+            Cellular energy currency.
+        """.trimIndent()
+
+        val result = MarkdownCardsParser.parse(input).single()
+        assertTrue(result is ParseResult.Success)
     }
 
     @Test
