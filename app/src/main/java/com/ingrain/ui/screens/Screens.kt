@@ -23,14 +23,18 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -310,7 +314,6 @@ fun DeckListScreen(
             deck.id to repo.countDueUntil(deck, dayStart, endOfDay, endOfDay)
         }
     }
-    var pendingDeckDelete by remember { mutableStateOf<DeckEntity?>(null) }
     var showAddDeckDialog by remember { mutableStateOf(false) }
     var showAddActionDialog by remember { mutableStateOf(false) }
     var newDeckName by remember { mutableStateOf("") }
@@ -371,17 +374,18 @@ fun DeckListScreen(
                         ) {
                             Text(deck.name, style = MaterialTheme.typography.titleMedium)
                             Text(
-                                text = if (dueToday > 0) "Due cards remaining today" else "No due cards remaining today",
+                                text = dueToday.toString(),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(shape = AppButtonShape, onClick = { onEditDeck(deck.id) }) {
-                                Text("Edit")
-                            }
-                            TextButton(shape = AppButtonShape, onClick = { pendingDeckDelete = deck }) {
-                                Text("Delete", color = MaterialTheme.colorScheme.error)
+                            IconButton(onClick = { onEditDeck(deck.id) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Edit",
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                )
                             }
                         }
                     }
@@ -398,26 +402,6 @@ fun DeckListScreen(
             onDismiss = { showFormattingMenu = false }
         )
     }
-
-    val targetDeck = pendingDeckDelete
-    if (targetDeck != null) {
-        AlertDialog(
-            onDismissRequest = { pendingDeckDelete = null },
-            title = { Text("Delete deck") },
-            text = { Text("Delete \"${targetDeck.name}\"?") },
-            confirmButton = {
-                TextButton(shape = AppButtonShape, onClick = {
-                    scope.launch { repo.deleteDeck(targetDeck.id) }
-                    pendingDeckDelete = null
-                }) { Text("Delete") }
-            },
-            dismissButton = {
-                TextButton(shape = AppButtonShape, onClick = { pendingDeckDelete = null }) { Text("Cancel") }
-            },
-        )
-    }
-
-
     if (showAddActionDialog) {
         AlertDialog(
             onDismissRequest = { showAddActionDialog = false },
