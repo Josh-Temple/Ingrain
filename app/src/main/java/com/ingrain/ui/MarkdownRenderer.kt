@@ -68,7 +68,11 @@ private fun tokenStyle(token: StyleToken, uiStyle: UiStyleSettings) = when (toke
     )
     StyleToken.Paragraph -> MaterialTheme.typography.bodyLarge.copy(
         fontSize = uiStyle.bodySizeSp.sp,
-        color = UiStylePresets.markdownEmphasisColors.getOrElse(uiStyle.bodyColorIndex) { MaterialTheme.colorScheme.onSurface },
+        color = if (uiStyle.bodyUsesThemeTextColor) {
+            MaterialTheme.colorScheme.onSurface
+        } else {
+            UiStylePresets.markdownEmphasisColors.getOrElse(uiStyle.bodyColorIndex) { MaterialTheme.colorScheme.onSurface }
+        },
     )
     StyleToken.ListItem -> MaterialTheme.typography.bodyLarge.copy(
         fontSize = uiStyle.listSizeSp.sp,

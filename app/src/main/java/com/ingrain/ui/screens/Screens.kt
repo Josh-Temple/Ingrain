@@ -92,21 +92,12 @@ import kotlin.math.roundToInt
 
 data class AddPreset(val name: String, val front: String, val back: String, val tags: String)
 
-private data class FormattingExample(val label: String, val description: String, val snippet: String)
-
 private val addTemplates = listOf(
     AddPreset("Basic", "Term or Question", "Definition or Answer", ""),
     AddPreset("Example", "Word", "Meaning + Example Sentence", "vocab"),
     AddPreset("Cloze", "Sentence with {{c1::key term}}", "Extra explanation", "cloze"),
 )
 
-private val formattingExamples = listOf(
-    FormattingExample("H3", "H3 heading: start with ###", "### Photosynthesis"),
-    FormattingExample("H4", "H4 heading: start with ####", "#### Light reaction"),
-    FormattingExample("Bold", "Bold: wrap with **double asterisks**", "**Key term**"),
-    FormattingExample("Italic", "Italic: wrap with *single asterisks*", "*Nuance*"),
-    FormattingExample("List", "List: start each line with -", "- Item 1\n- Item 2"),
-)
 
 private const val RatingAgain = "AGAIN"
 private const val RatingGood = "GOOD"
@@ -327,8 +318,6 @@ fun DeckListScreen(
     var showFormattingMenu by remember { mutableStateOf(false) }
     val uiStyle by uiStyleStore.settings.collectAsState(initial = UiStyleSettings())
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val clipboard = context.getSystemService(ClipboardManager::class.java)
 
     Scaffold(
         topBar = {
@@ -406,10 +395,7 @@ fun DeckListScreen(
         AppFormattingGuideDialog(
             uiStyle = uiStyle,
             onSaveStyle = { updated -> scope.launch { uiStyleStore.save(updated) } },
-            onDismiss = { showFormattingMenu = false },
-            onCopy = { label, snippet ->
-                clipboard?.setPrimaryClip(ClipData.newPlainText(label, snippet))
-            },
+            onDismiss = { showFormattingMenu = false }
         )
     }
 
@@ -614,7 +600,6 @@ private fun AppFormattingGuideDialog(
     uiStyle: UiStyleSettings,
     onSaveStyle: (UiStyleSettings) -> Unit,
     onDismiss: () -> Unit,
-    onCopy: (label: String, snippet: String) -> Unit,
 ) {
     var showAccentMenu by remember { mutableStateOf(false) }
     var showSizeMenu by remember { mutableStateOf(false) }
@@ -622,6 +607,7 @@ private fun AppFormattingGuideDialog(
     var showSurfaceMenu by remember { mutableStateOf(false) }
     var showTextMenu by remember { mutableStateOf(false) }
     var showFontMenu by remember { mutableStateOf(false) }
+    var showStudyGuideMenu by remember { mutableStateOf(false) }
     var bulkThemeInput by remember { mutableStateOf("") }
     var bulkThemeMessage by remember { mutableStateOf<String?>(null) }
 
@@ -728,6 +714,7 @@ private fun AppFormattingGuideDialog(
                                         customTextColorArgb = parsed.text.toArgb(),
                                         customPrimaryColorArgb = parsed.primary.toArgb(),
                                         customSecondaryColorArgb = parsed.accent.toArgb(),
+                                        bodyUsesThemeTextColor = true,
                                     ),
                                 )
                                 bulkThemeMessage = "Theme colors applied."
@@ -799,6 +786,29 @@ private fun AppFormattingGuideDialog(
                                 }
                             }
                         }
+                    }
+                    LabeledSettingRow("Study guide text", "Show reveal/edit hint on study card front") {
+                        Box {
+                            TextButton(shape = AppButtonShape, onClick = { showStudyGuideMenu = true }) {
+                                Text(if (uiStyle.showStudyRevealGuide) "On" else "Off")
+                            }
+                            DropdownMenu(expanded = showStudyGuideMenu, onDismissRequest = { showStudyGuideMenu = false }) {
+                                DropdownMenuItem(text = { Text("On") }, onClick = {
+                                    onSaveStyle(uiStyle.copy(showStudyRevealGuide = true))
+                                    showStudyGuideMenu = false
+                                })
+                                DropdownMenuItem(text = { Text("Off") }, onClick = {
+                                    onSaveStyle(uiStyle.copy(showStudyRevealGuide = false))
+                                    showStudyGuideMenu = false
+                                })
+                            }
+                        }
+                    }
+                    LabeledSettingRow("Body color source", "Use Text color for Body when enabled (bulk apply enables this)") {
+                        Switch(
+                            checked = uiStyle.bodyUsesThemeTextColor,
+                            onCheckedChange = { enabled -> onSaveStyle(uiStyle.copy(bodyUsesThemeTextColor = enabled)) },
+                        )
                     }
                 }
 
@@ -913,16 +923,6 @@ private fun AppFormattingGuideDialog(
                         markdown = "### Photosynthesis\n#### Light reaction\n**Chlorophyll** captures *photon energy*\n- ATP synthesis\n- NADPH generation",
                         uiStyle = uiStyle,
                     )
-                }
-
-                formattingExamples.forEach { item ->
-                    Text(item.description, style = MaterialTheme.typography.bodyMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(shape = AppButtonShape, onClick = { onCopy(item.label.lowercase(), item.snippet) }) {
-                            Text("Copy ${item.label}")
-                        }
-                        Text(item.snippet, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
                 }
             }
         },
@@ -1403,7 +1403,7 @@ fun StudyScreen(
                     modifier = Modifier.align(Alignment.Center),
                 )
             }
-            if (currentCard != null && !showAnswer) {
+            if (currentCard != null && !showAnswer && uiStyle.showStudyRevealGuide) {
                 Text(
                     text = "Tap card to reveal answer • Swipe up to edit",
                     style = MaterialTheme.typography.bodySmall,
