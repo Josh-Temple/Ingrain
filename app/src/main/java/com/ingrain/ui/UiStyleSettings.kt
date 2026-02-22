@@ -44,6 +44,11 @@ data class UiStyleSettings(
     val boldColorIndex: Int = 0,
     val italicColorIndex: Int = 1,
     val fontModeId: Int = AppFontMode.SystemDefault.id,
+    val customPrimaryColorArgb: Int? = null,
+    val customSecondaryColorArgb: Int? = null,
+    val customBackgroundColorArgb: Int? = null,
+    val customSurfaceColorArgb: Int? = null,
+    val customTextColorArgb: Int? = null,
 )
 
 object UiStylePresets {
@@ -111,6 +116,11 @@ class UiStyleSettingsStore(private val context: Context) {
         val boldColorIndex = intPreferencesKey("bold_color_index")
         val italicColorIndex = intPreferencesKey("italic_color_index")
         val fontModeId = intPreferencesKey("font_mode_id")
+        val customPrimaryColorArgb = intPreferencesKey("custom_primary_color_argb")
+        val customSecondaryColorArgb = intPreferencesKey("custom_secondary_color_argb")
+        val customBackgroundColorArgb = intPreferencesKey("custom_background_color_argb")
+        val customSurfaceColorArgb = intPreferencesKey("custom_surface_color_argb")
+        val customTextColorArgb = intPreferencesKey("custom_text_color_argb")
     }
 
     val settings: Flow<UiStyleSettings> = context.uiStyleDataStore.data.map { p ->
@@ -131,6 +141,11 @@ class UiStyleSettingsStore(private val context: Context) {
             boldColorIndex = p[Keys.boldColorIndex] ?: 0,
             italicColorIndex = p[Keys.italicColorIndex] ?: 1,
             fontModeId = p[Keys.fontModeId] ?: AppFontMode.SystemDefault.id,
+            customPrimaryColorArgb = p[Keys.customPrimaryColorArgb],
+            customSecondaryColorArgb = p[Keys.customSecondaryColorArgb],
+            customBackgroundColorArgb = p[Keys.customBackgroundColorArgb],
+            customSurfaceColorArgb = p[Keys.customSurfaceColorArgb],
+            customTextColorArgb = p[Keys.customTextColorArgb],
         )
     }
 
@@ -152,15 +167,26 @@ class UiStyleSettingsStore(private val context: Context) {
             p[Keys.boldColorIndex] = settings.boldColorIndex
             p[Keys.italicColorIndex] = settings.italicColorIndex
             p[Keys.fontModeId] = settings.fontModeId
+            settings.customPrimaryColorArgb?.let { p[Keys.customPrimaryColorArgb] = it } ?: p.remove(Keys.customPrimaryColorArgb)
+            settings.customSecondaryColorArgb?.let { p[Keys.customSecondaryColorArgb] = it } ?: p.remove(Keys.customSecondaryColorArgb)
+            settings.customBackgroundColorArgb?.let { p[Keys.customBackgroundColorArgb] = it } ?: p.remove(Keys.customBackgroundColorArgb)
+            settings.customSurfaceColorArgb?.let { p[Keys.customSurfaceColorArgb] = it } ?: p.remove(Keys.customSurfaceColorArgb)
+            settings.customTextColorArgb?.let { p[Keys.customTextColorArgb] = it } ?: p.remove(Keys.customTextColorArgb)
         }
     }
 }
 
 fun applyUiStyle(base: ColorScheme, settings: UiStyleSettings): ColorScheme {
-    val primary = UiStylePresets.accentColors.getOrElse(settings.accentIndex) { UiStylePresets.accentColors.first() }
-    val background = UiStylePresets.surfaceBackgroundColors.getOrElse(settings.backgroundColorIndex) { base.background }
-    val surface = UiStylePresets.surfaceBackgroundColors.getOrElse(settings.surfaceColorIndex) { base.surface }
-    val text = UiStylePresets.textColors.getOrElse(settings.textColorIndex) { base.onSurface }
+    val primary = settings.customPrimaryColorArgb?.let(::Color)
+        ?: UiStylePresets.accentColors.getOrElse(settings.accentIndex) { UiStylePresets.accentColors.first() }
+    val secondary = settings.customSecondaryColorArgb?.let(::Color)
+        ?: UiStylePresets.accentColors.getOrElse((settings.accentIndex + 1) % UiStylePresets.accentColors.size) { primary }
+    val background = settings.customBackgroundColorArgb?.let(::Color)
+        ?: UiStylePresets.surfaceBackgroundColors.getOrElse(settings.backgroundColorIndex) { base.background }
+    val surface = settings.customSurfaceColorArgb?.let(::Color)
+        ?: UiStylePresets.surfaceBackgroundColors.getOrElse(settings.surfaceColorIndex) { base.surface }
+    val text = settings.customTextColorArgb?.let(::Color)
+        ?: UiStylePresets.textColors.getOrElse(settings.textColorIndex) { base.onSurface }
     val isLightSurface = surface.luminance() > 0.5f
     val onPrimary = if (primary.luminance() > 0.5f) Color(0xFF111111) else Color(0xFFF8F8F8)
     val onSurface = text
@@ -170,7 +196,7 @@ fun applyUiStyle(base: ColorScheme, settings: UiStyleSettings): ColorScheme {
     return base.copy(
         primary = primary,
         onPrimary = onPrimary,
-        secondary = UiStylePresets.accentColors.getOrElse((settings.accentIndex + 1) % UiStylePresets.accentColors.size) { primary },
+        secondary = secondary,
         background = background,
         surface = surface,
         surfaceVariant = surfaceVariant,
