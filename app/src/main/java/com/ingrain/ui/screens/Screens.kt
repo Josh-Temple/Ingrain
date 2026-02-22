@@ -45,6 +45,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -84,6 +85,9 @@ import com.ingrain.ui.UiStyleSettingsStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlin.math.roundToInt
 
 data class AddPreset(val name: String, val front: String, val back: String, val tags: String)
@@ -106,6 +110,59 @@ private val formattingExamples = listOf(
 
 private const val RatingAgain = "AGAIN"
 private const val RatingGood = "GOOD"
+
+private data class ParsedThemeColors(
+    val background: Color,
+    val surface: Color,
+    val text: Color,
+    val primary: Color,
+    val accent: Color,
+)
+
+private fun parseHexColor(raw: String): Color? {
+    val cleaned = raw.trim().removePrefix("#")
+    if (!cleaned.matches(Regex("[0-9A-Fa-f]{6}"))) return null
+    val value = cleaned.toLongOrNull(16) ?: return null
+    return Color((0xFF000000 or value).toInt())
+}
+
+private fun extractCssThemeColors(input: String): ParsedThemeColors? {
+    fun findVariable(name: String): Color? {
+        val regex = Regex("--$name\\s*:\\s*(#[0-9A-Fa-f]{6})")
+        val hex = regex.find(input)?.groupValues?.get(1) ?: return null
+        return parseHexColor(hex)
+    }
+
+    val background = findVariable("color-background") ?: return null
+    val surface = findVariable("color-surface") ?: return null
+    val text = findVariable("color-text") ?: return null
+    val primary = findVariable("color-primary") ?: return null
+    val accent = findVariable("color-accent") ?: return null
+    return ParsedThemeColors(background, surface, text, primary, accent)
+}
+
+private fun extractJsonThemeColors(input: String): ParsedThemeColors? {
+    val root = runCatching { Json.parseToJsonElement(input).jsonObject }.getOrNull() ?: return null
+    val map = buildMap {
+        root["colors"]?.jsonArray?.forEach { item ->
+            val obj = item.jsonObject
+            val role = obj["role"]?.jsonPrimitive?.content
+            val hex = obj["hex"]?.jsonPrimitive?.content
+            if (role != null && hex != null) put(role, hex)
+        }
+    }
+    val background = map["background"]?.let(::parseHexColor) ?: return null
+    val surface = map["surface"]?.let(::parseHexColor) ?: return null
+    val text = map["text"]?.let(::parseHexColor) ?: return null
+    val primary = map["primary"]?.let(::parseHexColor) ?: return null
+    val accent = map["accent"]?.let(::parseHexColor) ?: return null
+    return ParsedThemeColors(background, surface, text, primary, accent)
+}
+
+private fun parseThemeColors(input: String): ParsedThemeColors? {
+    return extractCssThemeColors(input)
+        ?: extractJsonThemeColors(input)
+}
 
 private val AppButtonShape
     @Composable
@@ -565,6 +622,8 @@ private fun AppFormattingGuideDialog(
     var showSurfaceMenu by remember { mutableStateOf(false) }
     var showTextMenu by remember { mutableStateOf(false) }
     var showFontMenu by remember { mutableStateOf(false) }
+    var bulkThemeInput by remember { mutableStateOf("") }
+    var bulkThemeMessage by remember { mutableStateOf<String?>(null) }
 
     @Composable
     fun stylePickerRow(
@@ -621,6 +680,41 @@ private fun AppFormattingGuideDialog(
             ) {
                 Text("These Markdown styles are shared across all decks and cards.")
                 Text("Theme")
+                Text("Bulk theme input (CSS variables or JSON)")
+                TextField(
+                    value = bulkThemeInput,
+                    onValueChange = {
+                        bulkThemeInput = it
+                        bulkThemeMessage = null
+                    },
+                    placeholder = { Text("Paste :root vars or a colors JSON block") },
+                    modifier = Modifier.fillMaxWidth().height(140.dp),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(shape = AppButtonShape, onClick = {
+                        val parsed = parseThemeColors(bulkThemeInput)
+                        if (parsed == null) {
+                            bulkThemeMessage = "Could not parse 5 colors. Required: background, surface, text, primary, accent."
+                        } else {
+                            onSaveStyle(
+                                uiStyle.copy(
+                                    customBackgroundColorArgb = parsed.background.toArgb(),
+                                    customSurfaceColorArgb = parsed.surface.toArgb(),
+                                    customTextColorArgb = parsed.text.toArgb(),
+                                    customPrimaryColorArgb = parsed.primary.toArgb(),
+                                    customSecondaryColorArgb = parsed.accent.toArgb(),
+                                ),
+                            )
+                            bulkThemeMessage = "Theme colors applied."
+                        }
+                    }) { Text("Apply bulk colors") }
+                    TextButton(shape = AppButtonShape, onClick = {
+                        bulkThemeInput = ""
+                        bulkThemeMessage = null
+                    }) { Text("Clear") }
+                }
+                bulkThemeMessage?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Primary:")
                     Box {
@@ -632,7 +726,7 @@ private fun AppFormattingGuideDialog(
                                 DropdownMenuItem(
                                     text = { Text(label) },
                                     onClick = {
-                                        onSaveStyle(uiStyle.copy(accentIndex = index))
+                                        onSaveStyle(uiStyle.copy(accentIndex = index, customPrimaryColorArgb = null, customSecondaryColorArgb = null))
                                         showAccentMenu = false
                                     },
                                 )
@@ -649,7 +743,7 @@ private fun AppFormattingGuideDialog(
                         DropdownMenu(expanded = showBackgroundMenu, onDismissRequest = { showBackgroundMenu = false }) {
                             UiStylePresets.surfaceBackgroundLabels.forEachIndexed { index, label ->
                                 DropdownMenuItem(text = { Text(label) }, onClick = {
-                                    onSaveStyle(uiStyle.copy(backgroundColorIndex = index))
+                                    onSaveStyle(uiStyle.copy(backgroundColorIndex = index, customBackgroundColorArgb = null))
                                     showBackgroundMenu = false
                                 })
                             }
@@ -665,7 +759,7 @@ private fun AppFormattingGuideDialog(
                         DropdownMenu(expanded = showSurfaceMenu, onDismissRequest = { showSurfaceMenu = false }) {
                             UiStylePresets.surfaceBackgroundLabels.forEachIndexed { index, label ->
                                 DropdownMenuItem(text = { Text(label) }, onClick = {
-                                    onSaveStyle(uiStyle.copy(surfaceColorIndex = index))
+                                    onSaveStyle(uiStyle.copy(surfaceColorIndex = index, customSurfaceColorArgb = null))
                                     showSurfaceMenu = false
                                 })
                             }
@@ -681,7 +775,7 @@ private fun AppFormattingGuideDialog(
                         DropdownMenu(expanded = showTextMenu, onDismissRequest = { showTextMenu = false }) {
                             UiStylePresets.textLabels.forEachIndexed { index, label ->
                                 DropdownMenuItem(text = { Text(label) }, onClick = {
-                                    onSaveStyle(uiStyle.copy(textColorIndex = index))
+                                    onSaveStyle(uiStyle.copy(textColorIndex = index, customTextColorArgb = null))
                                     showTextMenu = false
                                 })
                             }
