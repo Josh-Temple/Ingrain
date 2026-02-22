@@ -450,6 +450,7 @@ fun DeckDetailScreen(
     onStudy: () -> Unit,
     onImport: () -> Unit,
     onSettings: () -> Unit,
+    onBackup: () -> Unit,
     onClose: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -458,7 +459,7 @@ fun DeckDetailScreen(
     var showRenameDialog by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf(false) }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("") }) }) { p ->
+    Scaffold(topBar = { TopAppBar(title = { Text("Deck details") }) }) { p ->
         Column(
             modifier = Modifier
                 .padding(p)
@@ -479,6 +480,9 @@ fun DeckDetailScreen(
             }
             TextButton(shape = AppButtonShape, onClick = onSettings) {
                 Text("Deck Settings", style = MaterialTheme.typography.headlineSmall)
+            }
+            TextButton(shape = AppButtonShape, onClick = onBackup) {
+                Text("Backup & Restore", style = MaterialTheme.typography.headlineSmall)
             }
             TextButton(shape = AppButtonShape, onClick = { showRenameDialog = true }) {
                 Text("Rename", style = MaterialTheme.typography.headlineSmall)
@@ -1091,10 +1095,6 @@ private fun ManualAddSection(
         )
     }
 
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(shape = AppButtonShape, onClick = { }) { Text("Add Tag") }
-        Button(shape = AppButtonShape, onClick = { }) { Text("Record Audio") }
-    }
 
     if (duplicateHint != null) {
         Text(duplicateHint, color = MaterialTheme.colorScheme.error)
@@ -1112,10 +1112,22 @@ private fun ManualAddSection(
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Continuous mode")
         Switch(checked = continuousMode, onCheckedChange = onContinuousModeChange)
-        if (selectedDeckId == null) {
+    }
+    Text(
+        text = "When enabled, front/back fields stay open after save for rapid entry.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    if (selectedDeckId == null) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Keep deck")
             Switch(checked = keepDeckInContinuous, onCheckedChange = onKeepDeckInContinuousChange)
         }
+        Text(
+            text = "Keeps the typed deck name after saving in continuous mode.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 
     Button(shape = AppButtonShape, onClick = onSave, modifier = Modifier.fillMaxWidth()) { Text("Save Card (Ctrl+Enter)") }
@@ -1210,6 +1222,7 @@ fun StudyScreen(
     settingsStore: SchedulerSettingsStore,
     uiStyleStore: UiStyleSettingsStore,
     onEditCard: (Long) -> Unit,
+    onBackToDecks: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val schedulerSettings by settingsStore.settings.collectAsState(initial = SchedulerSettings())
@@ -1278,6 +1291,13 @@ fun StudyScreen(
                     modifier = Modifier.align(Alignment.Center),
                 )
             }
+            if (currentCard != null && !showAnswer) {
+                Text(
+                    text = "Tap card to reveal answer • Swipe up to edit",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             Column(
                 modifier = Modifier
@@ -1310,6 +1330,12 @@ fun StudyScreen(
                         style = MaterialTheme.typography.headlineSmall,
                         textAlign = TextAlign.Center,
                     )
+                    if (message == "You're done for today") {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(shape = AppButtonShape, onClick = onBackToDecks) {
+                            Text("Back to Decks")
+                        }
+                    }
                 } else {
                     MarkdownTokenText(
                         markdown = currentCard.front,
@@ -1350,7 +1376,15 @@ fun StudyScreen(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
                             contentColor = MaterialTheme.colorScheme.onSurface,
                         ),
-                    ) { Text("Again") }
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "~${schedulerSettings.againDelayMinutes}m",
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                            Text("Again")
+                        }
+                    }
                     Button(shape = AppButtonShape,
                         onClick = { scope.launch { submitReview(currentCard, RatingGood) } },
                         modifier = Modifier.weight(2f),
@@ -1632,7 +1666,7 @@ fun BackupScreen(deckId: Long, repo: IngrainRepository) {
                 }
                 Button(shape = AppButtonShape, onClick = {
                     pendingOperation = FileOperation.IMPORT
-                    openLauncher.launch(arrayOf("*/*"))
+                    openLauncher.launch(arrayOf("text/markdown", "application/json"))
                 }, modifier = Modifier.fillMaxWidth()) {
                     Text("Import file")
                 }

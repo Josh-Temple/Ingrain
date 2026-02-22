@@ -48,6 +48,7 @@ fun IngrainApp(repo: IngrainRepository, settingsStore: SchedulerSettingsStore, u
                 onStudy = { nav.navigate("study/$deckId") },
                 onImport = { nav.navigate("import/$deckId") },
                 onSettings = { nav.navigate("settings/$deckId") },
+                onBackup = { nav.navigate("backup/$deckId") },
                 onClose = { nav.popBackStack() },
             )
         }
@@ -64,6 +65,11 @@ fun IngrainApp(repo: IngrainRepository, settingsStore: SchedulerSettingsStore, u
                 settingsStore = settingsStore,
                 uiStyleStore = uiStyleStore,
                 onEditCard = { nav.navigate("edit-card/$it") },
+                onBackToDecks = {
+                    nav.navigate(Routes.DECKS) {
+                        popUpTo(Routes.DECKS) { inclusive = true }
+                    }
+                },
             )
         }
         composable(Routes.SETTINGS, arguments = listOf(navArgument("deckId") { type = NavType.LongType })) { entry ->
