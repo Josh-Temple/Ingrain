@@ -7,7 +7,7 @@ AIが生成した出力をコピペして大量登録できることを最優先
 
 ## Goals
 - **単一入力欄**に貼り付け → 自動でカード化（UI上でFront/Backを分けない）
-- **AIフレンドリーなインポート**：JSON Lines（1行1カード）
+- **AIフレンドリーなインポート**：Markdown + YAML front matter（JSON Lines後方互換）
 - **手動バックアップ/復元**：エクスポート/インポート
 - **デッキ分割**
 - 復習アルゴリズム：**SM-2簡易（2択評価）**
@@ -34,9 +34,10 @@ AIが生成した出力をコピペして大量登録できることを最優先
 - デッキ一覧（作成/名前変更/削除）
 - デッキ詳細：Study / Add&Import / Export / Settings
 
-## Add & Import (single input)
-- 画面に**1つのテキスト入力欄**のみ（Front/Backに分けない）
-- ここにJSON Linesを貼り付け → 行ごとにパース
+## Add & Import
+- 画面でカードを手動入力、または一括入力欄に貼り付け
+- 推奨: Markdown + YAML front matter（`===` 区切り）
+- 後方互換: JSON Lines も取り込み可能
 - プレビュー表示（成功/失敗/エラー理由）
 - ImportでDBへ保存（重複はスキップ）
 
@@ -48,8 +49,8 @@ AIが生成した出力をコピペして大量登録できることを最優先
   - Good（成功）
 
 ## Backup / Restore
-- Export：JSON LinesとしてSAFで選んだ場所へ書き出し
-- Import：SAFでファイル選択 → 読み込み → 取り込み（マージ）
+- Export：Markdown（YAML front matter + `===`）としてSAFで書き出し
+- Import：Markdown / JSON Lines の両方を読み込み可能
 
 ---
 
@@ -128,35 +129,48 @@ due_at = now + again_delay_minutes minutes
 ---
 
 # Import/Export format (AI-friendly)
-## JSON Lines (1 line = 1 card)
-Each line is one JSON object.
+## Markdown + YAML front matter (recommended)
+各カードは以下の形式。
+
+### Required
+- YAML front matter: `deck`, `tags`
+- Body sections: `### Front`, `### Back`
+- Multi-card delimiter: `===`
+
+### Example
+```markdown
+---
+deck: "English"
+tags: ["vocab"]
+---
+
+### Front
+What does **ubiquitous** mean?
+
+### Back
+(Adj) present everywhere; widespread.
+===
+---
+deck: "Stats"
+tags:
+  - cogbias
+  - stats
+---
+
+### Front
+ベースレート無視とは？
+
+### Back
+事前確率（ベースレート）を無視して判断する誤り。
+```
+
+## JSON Lines (backward compatibility)
+従来形式も引き続き読み込み可能。
 
 ### Required
 - deck: string (deck name)
 - front: string
 - back: string
-
-### Optional
-- tags: string[]
-- due_at: number (epoch millis)
-- interval_days: number
-- ease_factor: number
-- repetitions: number
-- lapses: number
-
-### Examples
-{"deck":"English","front":"ubiquitous","back":"(adj) present everywhere; widespread","tags":["vocab"]}
-{"deck":"Stats","front":"ベースレート無視とは？","back":"事前確率（ベースレート）を無視して判断する誤り","tags":["cogbias","stats"]}
-
-### Import rules
-- deckが存在しなければ作成
-- front/backが空ならその行は失敗としてスキップ
-- 重複判定：同一(deck + front + back)が存在したらスキップ
-- scheduling fieldsが不正なら無視して「新規カード」として扱う
-
-### Export rules
-- 全デッキ or 選択デッキをJSON Linesで出力
-- scheduling fieldsも出力（完全復元できるように）
 
 ---
 
