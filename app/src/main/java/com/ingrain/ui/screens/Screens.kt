@@ -83,10 +83,19 @@ import kotlin.math.roundToInt
 
 data class AddPreset(val name: String, val front: String, val back: String, val tags: String)
 
+private data class FormattingExample(val label: String, val description: String, val snippet: String)
+
 private val addTemplates = listOf(
     AddPreset("Basic", "Term or Question", "Definition or Answer", ""),
     AddPreset("Example", "Word", "Meaning + Example Sentence", "vocab"),
     AddPreset("Cloze", "Sentence with {{c1::key term}}", "Extra explanation", "cloze"),
+)
+
+private val formattingExamples = listOf(
+    FormattingExample("H3", "H3 heading: start with ###", "### Photosynthesis"),
+    FormattingExample("Bold", "Bold: wrap with **double asterisks**", "**Key term**"),
+    FormattingExample("Italic", "Italic: wrap with *single asterisks*", "*Nuance*"),
+    FormattingExample("List", "List: start each line with -", "- Item 1\n- Item 2"),
 )
 
 private const val RatingAgain = "AGAIN"
@@ -139,6 +148,11 @@ private data class ManualAddDraft(
     val tags: String,
 )
 
+private enum class TemplateFormat(val label: String) {
+    Markdown("Markdown"),
+    JsonLines("JSON Lines"),
+}
+
 private fun parseTags(raw: String): List<String> = raw.split(",").map { it.trim() }.filter { it.isNotBlank() }
 
 private val screenJson = Json { ignoreUnknownKeys = true }
@@ -183,6 +197,30 @@ private fun jsonTemplate(deckName: String, front: String, back: String, tags: St
     return """{"deck":"$deckName","front":"$front","back":"$back","tags":[$tagList]}"""
 }
 
+private fun markdownTemplate(deckName: String, front: String, back: String, tags: String): String {
+    val tagLines = parseTags(tags)
+    val tagsBlock = if (tagLines.isEmpty()) {
+        "tags: []"
+    } else {
+        buildString {
+            appendLine("tags:")
+            tagLines.forEach { appendLine("  - \"$it\"") }
+        }.trimEnd()
+    }
+    return """
+---
+deck: "$deckName"
+$tagsBlock
+---
+
+## Front
+$front
+
+## Back
+$back
+""".trimIndent()
+}
+
 @Composable
 private fun SurfaceCard(content: @Composable () -> Unit) {
     Card(
@@ -220,10 +258,20 @@ fun DeckListScreen(
     var showAddActionDialog by remember { mutableStateOf(false) }
     var newDeckName by remember { mutableStateOf("") }
     var addDeckError by remember { mutableStateOf<String?>(null) }
+    var showFormattingMenu by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val clipboard = context.getSystemService(ClipboardManager::class.java)
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Decks") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Decks") },
+                navigationIcon = {
+                    TextButton(shape = AppButtonShape, onClick = { showFormattingMenu = true }) { Text("Menu") }
+                },
+            )
+        },
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
@@ -285,6 +333,15 @@ fun DeckListScreen(
                 }
             }
         }
+    }
+
+    if (showFormattingMenu) {
+        AppFormattingGuideDialog(
+            onDismiss = { showFormattingMenu = false },
+            onCopy = { label, snippet ->
+                clipboard?.setPrimaryClip(ClipData.newPlainText(label, snippet))
+            },
+        )
     }
 
     val targetDeck = pendingDeckDelete
@@ -479,6 +536,34 @@ fun DeckDetailScreen(
     }
 }
 
+@Composable
+private fun AppFormattingGuideDialog(
+    onDismiss: () -> Unit,
+    onCopy: (label: String, snippet: String) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("App formatting guide") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("These Markdown styles are shared across all decks and cards.")
+                formattingExamples.forEach { item ->
+                    Text(item.description)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(shape = AppButtonShape, onClick = { onCopy(item.label.lowercase(), item.snippet) }) {
+                            Text("Copy ${item.label}")
+                        }
+                        Text(item.snippet)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(shape = AppButtonShape, onClick = onDismiss) { Text("Close") }
+        },
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImportScreen(deckId: Long?, repo: IngrainRepository) {
@@ -499,6 +584,7 @@ fun ImportScreen(deckId: Long?, repo: IngrainRepository) {
     var back by rememberSaveable { mutableStateOf("") }
     var tags by rememberSaveable { mutableStateOf("") }
     var message by rememberSaveable { mutableStateOf("") }
+    var templateFormat by rememberSaveable { mutableStateOf(TemplateFormat.Markdown) }
     var bulkText by rememberSaveable { mutableStateOf("") }
     var preview by remember { mutableStateOf<List<ParseResult>>(emptyList()) }
     val recentPresets = remember { mutableStateListOf<AddPreset>() }
@@ -609,15 +695,26 @@ fun ImportScreen(deckId: Long?, repo: IngrainRepository) {
                 onKeepDeckInContinuousChange = { keepDeckInContinuous = it },
                 duplicateHint = duplicateHint,
                 recentPresets = recentPresets,
+                templateFormat = templateFormat,
+                onTemplateFormatChange = { templateFormat = it },
                 onCopyTemplate = {
-                    val template = jsonTemplate(
-                        deckName = selectedDeck?.name ?: deckName.ifBlank { "<deck-name>" },
-                        front = front,
-                        back = back,
-                        tags = tags,
-                    )
+                    val targetDeck = selectedDeck?.name ?: deckName.ifBlank { "<deck-name>" }
+                    val template = when (templateFormat) {
+                        TemplateFormat.Markdown -> markdownTemplate(
+                            deckName = targetDeck,
+                            front = front,
+                            back = back,
+                            tags = tags,
+                        )
+                        TemplateFormat.JsonLines -> jsonTemplate(
+                            deckName = targetDeck,
+                            front = front,
+                            back = back,
+                            tags = tags,
+                        )
+                    }
                     clipboard?.setPrimaryClip(ClipData.newPlainText("template", template))
-                    message = "Template copied to clipboard"
+                    message = "${templateFormat.label} template copied to clipboard"
                 },
                 onCancel = { clearDraft(preserveTags = false, preserveDeck = false) },
                 onSave = { scope.launch { submitCard() } },
@@ -659,6 +756,8 @@ private fun ManualAddSection(
     onKeepDeckInContinuousChange: (Boolean) -> Unit,
     duplicateHint: String?,
     recentPresets: List<AddPreset>,
+    templateFormat: TemplateFormat,
+    onTemplateFormatChange: (TemplateFormat) -> Unit,
     onCopyTemplate: () -> Unit,
     onCancel: () -> Unit,
     onSave: () -> Unit,
@@ -721,7 +820,6 @@ private fun ManualAddSection(
         modifier = Modifier.fillMaxWidth(),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
     )
-
     SectionHeading("BACK SIDE")
     AppTextField(
         value = draft.back,
@@ -731,7 +829,6 @@ private fun ManualAddSection(
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { onSave() }),
     )
-
     if (!simpleMode) {
         AppTextField(
             value = draft.tags,
@@ -754,6 +851,8 @@ private fun ManualAddSection(
         simpleMode = simpleMode,
         draft = draft,
         onDraftChange = onDraftChange,
+        templateFormat = templateFormat,
+        onTemplateFormatChange = onTemplateFormatChange,
         onCopyTemplate = onCopyTemplate,
     )
 
@@ -785,6 +884,8 @@ private fun TemplateSection(
     simpleMode: Boolean,
     draft: ManualAddDraft,
     onDraftChange: (ManualAddDraft) -> Unit,
+    templateFormat: TemplateFormat,
+    onTemplateFormatChange: (TemplateFormat) -> Unit,
     onCopyTemplate: () -> Unit,
 ) {
     Text("Templates")
@@ -794,6 +895,17 @@ private fun TemplateSection(
                 val updatedTags = if (simpleMode) draft.tags else preset.tags
                 onDraftChange(draft.copy(front = preset.front, back = preset.back, tags = updatedTags))
             }) { Text(preset.name) }
+        }
+    }
+
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TemplateFormat.entries.forEach { format ->
+            FilterChip(
+                shape = AppButtonShape,
+                selected = templateFormat == format,
+                onClick = { onTemplateFormatChange(format) },
+                label = { Text(format.label) },
+            )
         }
     }
 
