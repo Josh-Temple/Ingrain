@@ -1,42 +1,39 @@
-# Card/Note Template (Markdown + YAML front matter)
+# Card Note Template (Markdown)
 
-`Ingrain` の推奨インポート形式は **Markdown + YAML front matter** です。  
-複数カードは `===` で区切ります。
+`Ingrain` recommends **Markdown + YAML front matter** as the primary import format.
+Separate multiple cards with `===`.
 
-## 必須ルール
-- 各カードは先頭に YAML front matter を置く
-- 必須キー: `deck`, `tags`
-- 本文は `### Front` と `### Back` の両方を含む
-- カード同士の区切りは `===`（単独行）
+## Required Rules
+- Each card must start with YAML front matter.
+- Required keys: `deck`, `tags`.
+- The body must include both `### Front` and `### Back`.
+- Use `===` (single line) as the separator between cards.
 
-## テンプレート
+## Template
+
 ```markdown
 ---
-deck: "<Deck Name>"
-tags: ["tag1", "tag2"]
+deck: Biology
+tags: [photosynthesis, basics]
 ---
-
 ### Front
-<question>
+What is photosynthesis?
 
 ### Back
-<answer>
+Photosynthesis is the process by which plants convert light energy into chemical energy.
 ===
 ---
-deck: "<Deck Name>"
-tags:
-  - tag1
-  - tag2
+deck: Biology
+tags: [chloroplast]
 ---
-
 ### Front
-<another question>
+Where does photosynthesis occur?
 
 ### Back
-<another answer>
+It primarily occurs in chloroplasts, especially in leaf cells.
 ```
 
-## メモ
-- Import は JSON Lines も後方互換として利用可能です。
-- `deck + front + back` が重複する行（カード）はスキップされます。
-- Markdown は CSS ではなく、スタイルトークン（heading3 / strong / emphasis / list / paragraph）にマッピングして描画します。
+## Notes
+- JSON Lines import is also supported for backward compatibility.
+- Rows (cards) with duplicate `deck + front + back` are skipped.
+- Markdown is rendered through style tokens (heading3 / strong / emphasis / list / paragraph), not CSS.

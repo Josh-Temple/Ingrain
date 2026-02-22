@@ -1,54 +1,50 @@
-# HANDOFF
+# Handoff Notes
 
-## Documentation policy
-- Keep all in-app UI copy in English.
+## Current Product State
+- The bottom navigation in Decks shows `ADD`; tapping it opens a dialog with `Add deck` and `Add card`.
+- `Add card` navigates to the global add screen (`import-global`).
+- `Target deck` on the add-card screen is optional. If `None` is selected, users can add cards to multiple decks via deck-name input or `deck` in JSON Lines/Markdown.
+- Whether users open add-card from Deck list or Deck detail, `Target deck` defaults to unselected.
+- The Study screen aligns front content toward the top, removes old `PROGRESS/cards` and `STUDY` tag display, shows deck name in the header, and uses a thinner front/back divider.
+- Users can swipe up on Study to open `Edit Card`.
+- Import/Export supports both Markdown + YAML front matter and JSON Lines.
+  - Markdown standard: `---` front matter + `## Front` / `## Back` + `===` separator.
+  - For backward compatibility, `### Front` / `### Back` are also accepted.
+- Backup/Restore export format is Markdown (`ingrain-backup.md`).
+- The renderer uses style tokens (heading3 / heading4 / paragraph / list / strong / emphasis), not CSS, and reflects App formatting guide settings.
+- In Add Card, `Templates` allows choosing `Markdown` / `JSON Lines` and copying a template.
+- The formatting guide is centralized under Decks → top-right `Menu` → `App formatting guide`.
+  - Users can change theme (Primary/Background/Surface/Text), font (System default / Helvetica preferred), and Markdown style size/color (H3/H4/Body/List/Bold/Italic).
+  - Live preview and reset are supported.
 
-## Current state summary
-- Deck一覧の下部ナビゲーションは `ADD` 表示で、タップ時に「Add deck / Add card」を選択するダイアログを表示します。`Add card` はグローバル追加画面（`import-global`）に遷移します。
-- カード追加画面の `Target deck` は任意選択です。`None` 選択時は deck 名入力（または JSON Lines / Markdown側の `deck` 指定）で複数デッキへ追加できます。
-- デッキ一覧/デッキ詳細のどちらからカード追加画面へ遷移しても、`Target deck` はデフォルト未選択です（デッキ詳細遷移時は deck 名の初期候補のみセット）。
+## Recent Refactoring
+- Refactored recently added style features to clarify responsibilities across settings model, renderer, and UI.
+- Added `bodyColorIndex` to `UiStyleSettings` so body text color is applied consistently in both UI and renderer.
+- Kept `uiStyleStore` wiring into `StudyScreen`; verified front/back Markdown rendering always reads current global style.
+- Simplified font selection in `App formatting guide` to direct `AppFontMode` references for readability.
 
-- Study画面は front を上寄せ表示、`PROGRESS/cards` と旧 `STUDY` タグ表示を削除、ヘッダーにデッキ名表示、表裏境界線を細く調整済みです。
-- Study画面は上方向スワイプで `Edit Card` に遷移できます。
+## Next Tasks
+1. Finalize Markdown card syntax v1 docs.
+   - Current: YAML front matter (`deck`, `tags`) + `## Front` / `## Back` (`###` accepted) + `===`
+   - Remaining: fine-tune error wording/line-number precision; sync fully with template docs.
+2. Strengthen parser/validator incrementally.
+   - Current: detects missing required sections, invalid front matter, empty Front/Back.
+   - Remaining: strict handling for YAML escaping and complex structures.
+3. Expand renderer policy.
+   - Current: h3, bold, italic, list, paragraph.
+   - Remaining: spacing rules between multiple paragraphs; decision on code/quote support.
+4. Finalize data migration policy.
+   - Current: DB stores `front/back` strings; Import/Export handles Markdown I/O.
+   - Remaining: decide whether AST/JSON cache is needed.
 
-- Import/Export は Markdown + YAML front matter と JSON Lines の両対応です。
-  - Markdownカードは `---` front matter + `## Front` / `## Back` + `===` 区切りを標準としています。
-  - パーサーは後方互換のため `### Front` / `### Back` も受理します。
-- Backup/Restore のエクスポート形式は Markdown（`ingrain-backup.md`）です。
-- Renderer は CSS ではなくスタイルトークン（heading3 / heading4 / paragraph / list / strong / emphasis）で表示し、App formatting guide の設定（サイズ/カラー）を反映します。
+## Operational Notes
+- `Target deck` currently uses button rows. If deck count grows, consider switching to `ExposedDropdownMenuBox`.
+- In this environment, Gradle can fail with JDK/Gradle compatibility error (`Unsupported class file major version 69`); validate builds in CI or a local environment with aligned JDK.
 
-- Add Card の `Templates` では、`Markdown` / `JSON Lines` を選択して `Copy template` できます。
-- 書式ガイドは Decks 画面右上 `Menu` から開く「App formatting guide」に集約しています。テーマ（Primary/Background/Surface/Text）、フォント（System default / Helvetica preferred）、Markdown書式（H3/H4/Body/List/Bold/Italic）のサイズ・色を変更でき、ライブプレビュー/リセットも利用できます。
-
-## This session (latest)
-- 直近のスタイル機能追加をリファクタリングし、設定モデル/レンダラ/UIの責務を整理しました。
-- `UiStyleSettings` に `bodyColorIndex` を追加し、Bodyテキストの色設定がUIとレンダラで一貫して反映されるよう修正しました。
-- `StudyScreen` への `uiStyleStore` 受け渡しを維持し、front/backのMarkdown描画が常に現在のグローバルスタイルを参照する状態を確認しました。
-- `App formatting guide` のフォント選択で `AppFontMode` の直接参照へ整理し、可読性を改善しました。
-
-## Next steps / plan
-1. Markdown card syntax v1 ドキュメントを最終固定する。
-   - 現在実装: YAML front matter (`deck`, `tags`) + `## Front` / `## Back`（`###` 互換受理）+ `===`
-   - 残タスク: エラー文言/行番号精度の微調整、テンプレート文書との完全同期
-2. Parser/Validator を段階的に強化する。
-   - 現在実装: 必須セクション不足/不正front matter/空Front/Backの検知
-   - 残タスク: YAMLエスケープ・複雑構造など厳密ケースの扱い
-3. Renderer方針を拡張する。
-   - 現在実装: h3, bold, italic, list, paragraph
-   - 残タスク: 複数段落間スペーシング、コード/引用サポートの判断
-4. Data migration方針を確定する。
-   - 現状: DBは `front/back` 文字列保持、Import/ExportでMarkdown入出力
-   - 残タスク: AST/JSONキャッシュ導入の要否判断
-
-## Notes for next session
-- `Target deck` は現状ボタン列。Deck数が増える場合は `ExposedDropdownMenuBox` 等への切替を検討。
-- この環境では Gradle 実行時に JDK/Gradle 互換性エラー（`Unsupported class file major version 69`）が発生するため、CI またはローカルJDK整備済み環境でのビルド確認が必要。
-
-
-## Known issues / product challenges
-- **UI責務の集中**: `Screens.kt` が複数画面（Decks/Detail/Import/Study/Edit/Settings/Backup）を抱えており、変更影響が読みにくくなりやすい。
-- **Menu情報設計の混在**: `App formatting guide` に Markdown書式ガイドとグローバル見た目設定（Accent / Button size）が同居しているため、目的別導線としては再整理余地あり。
-- **テーマ設定粒度の不足**: 現在の全体スタイルは主に `primary` と `shapes.small` への反映で、他の視覚要素（surface/typography等）との一貫したカスタマイズ方針が未整理。
-- **Study操作の発見性**: タップで解答表示・上スワイプで編集というジェスチャー中心設計は、初見ユーザーに気づかれにくい可能性あり。
-- **Import失敗時の可観測性**: `importParsed` で例外を集約して `failed++` する箇所があり、原因調査やUIへの詳細表示が弱い。
-- **ビルド再現性**: 現環境では Gradle 実行時に `Unsupported class file major version 69` が発生し、ローカル検証が不安定。
+## Risks / TODO
+- **UI responsibility concentration**: `Screens.kt` includes many screens (Decks/Detail/Import/Study/Edit/Settings/Backup), making impact analysis harder.
+- **Mixed menu information architecture**: `App formatting guide` currently combines Markdown format guidance with global appearance settings.
+- **Theme granularity gap**: Global styling currently focuses on `primary` and `shapes.small`; broader customization strategy is still unclear.
+- **Study discoverability**: Tap-to-reveal and swipe-up-to-edit gesture model may be hard for first-time users to discover.
+- **Import failure observability**: `importParsed` aggregates exceptions with `failed++`, making root-cause analysis and UI detail weak.
+- **Build reproducibility**: Current environment may hit `Unsupported class file major version 69`, causing unstable local verification.

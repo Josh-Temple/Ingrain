@@ -1,147 +1,49 @@
-# UI/UX点検レポート（全画面）
+# UI/UX Audit Report (All Screens)
 
-対象: `app/src/main/java/com/ingrain/ui/screens/Screens.kt` と `app/src/main/java/com/ingrain/ui/IngrainApp.kt`
+Scope: `app/src/main/java/com/ingrain/ui/screens/Screens.kt` and `app/src/main/java/com/ingrain/ui/IngrainApp.kt`
 
-## 総評
-- 情報設計は「Decks → Detail → Study / Add & Import / Settings」という学習アプリとして自然な主線を持っています。
-- 一方で、画面間導線の欠損・不可視ジェスチャー・操作密度の高さにより、初見ユーザーの完了率を下げるリスクがあります。
+## Overall Assessment
+- The information architecture follows a natural learning-app flow: `Decks → Detail → Study / Add & Import / Settings`.
+- Visual consistency is generally good; spacing and hierarchy are mostly predictable.
+- Main improvement opportunities are discoverability, consistency of naming, and better feedback for error/failure states.
 
-## 画面別の課題
+## Strengths
+- Clear primary flow from deck management to study.
+- Functional coverage is broad (study, import/export, backup/restore, formatting).
+- Formatting customization with live preview improves user confidence.
+- Markdown rendering is constrained by style tokens, helping preserve consistent presentation.
 
-### 1. Deck List（Decks）
+## Key Issues
+1. **Discoverability of gestures**
+   - Study interaction relies on tap-to-show-answer and swipe-up-to-edit, which can be easy to miss.
+2. **Screen responsibility concentration**
+   - `Screens.kt` owns many screens and concerns, increasing coupling and maintenance cost.
+3. **Inconsistent terminology and labels**
+   - Some labels and helper texts are not fully aligned across screens.
+4. **Limited failure transparency in import**
+   - Aggregated failures reduce diagnosability for users.
+5. **Settings IA overlap**
+   - Formatting guidance and global appearance controls are mixed in one entry point.
 
-#### 課題
-1. **主要CTAの意味が曖昧**（中）
-   - 下部ナビの `+` が「Deck追加」と「Card追加」を兼ねるダイアログを開くため、1タップ目で意図が確定しません。
-2. **デッキごとの進捗が定量表示されない**（中）
-   - 「Due cards remaining today / No due cards...」の文言のみで、件数や総量が見えません。
-3. **デッキ一覧が多い時のスケーラビリティ不足**（高）
-   - 横並びボタン（Edit/Delete）と縦リストの組み合わせで、件数が増えると視認性・操作性が低下します。
+## Recommendations by Priority
 
-#### 改善案
-- FABを `New Card` に固定し、`New Deck` はTopBar右上メニューへ移動。
-- 各デッキに「今日の残数（例: 12 due）」を明示。
-- 検索 / ソート / ピン留め（最近学習）を追加。
+### P0 (Must fix)
+- Add explicit onboarding cues for Study gestures (inline hint, tooltip, or first-run coach mark).
+- Improve import error reporting with per-card reason and line-level context where possible.
 
----
+### P1 (Should fix)
+- Split large screen file into feature-focused modules/components.
+- Unify naming/wording patterns across deck, card, and settings surfaces.
+- Add stronger empty-state CTAs (e.g., after study completion).
+- Add due-count summary in deck list for clearer progress context.
 
-### 2. Deck Detail
+### P2 (Nice to have)
+- Add search/sort for large deck collections.
+- Standardize edit/delete affordances across detail and list contexts.
+- Extend settings with contextual help and validation.
 
-#### 課題
-1. **TopAppBarタイトルが空で現在地が不明**（中）
-2. **破壊操作（Delete）が通常導線と同階層**（中）
-3. **Backup導線が存在しない**（高）
-   - ルートは定義されているのに、遷移ボタンがありません。
-
-#### 改善案
-- TopAppBarにデッキ名か `Deck details` を表示。
-- `Delete` は危険領域として視覚的に分離。
-- `Backup & Restore` をこの画面またはSettingsに統合。
-
----
-
-### 3. Add & Import
-
-#### 課題
-1. **要素密度が高すぎる単一画面構成**（高）
-   - 手入力、テンプレート、重複警告、連続モード、Bulk Import、Previewが一画面に集中。
-2. **ダミー操作の存在**（高）
-   - `Add Tag` / `Record Audio` が無動作。
-3. **デッキ選択UIが水平展開で拡張性に弱い**（高）
-   - デッキ数増加で横並びボタンが破綻。
-4. **状態説明不足**（中）
-   - Simple/Detailed、Continuous mode、Keep deck の効果が説明されない。
-
-#### 改善案
-- `Manual` と `Bulk Import` をタブ分離。
-- 未実装ボタンは非表示または `Coming soon` 表示。
-- デッキ選択は検索可能ドロップダウン/ボトムシート化。
-- モード切替にインライン説明を追加。
-
----
-
-### 4. Study
-
-#### 課題
-1. **重要操作が隠れジェスチャー依存**（高）
-   - 回答表示はタップ、編集は上スワイプで、ヒントがありません。
-2. **レビュー操作の情報優先順位が不均衡**（中）
-   - `Good` のみ次回間隔を表示し、`Again` 側の見通しが弱い。
-3. **空状態の次アクション不足**（中）
-   - `You're done for today` 時に戻る/別デッキへ導く行動提案がない。
-
-#### 改善案
-- 画面下に `Tap to reveal` / `Swipe up to edit` を常時ヒント表示。
-- Againにも「再出題目安（例: 10m）」を表示。
-- 完了時に `Back to Decks` / `Study another deck` CTAを配置。
-
----
-
-### 5. Edit Card
-
-#### 課題
-1. **保存成否フィードバックが弱い**（中）
-   - 成功時は即閉じるため保存完了感が薄い。
-2. **削除導線がない**（低）
-   - Study側には削除あり、Edit画面には無しで一貫性が低い。
-
-#### 改善案
-- 保存時に短いトースト/Snackbarを表示してから戻る。
-- `Delete card` を二次アクションとして追加（確認ダイアログ付き）。
-
----
-
-### 6. Settings（Deck Settings）
-
-#### 課題
-1. **高度設定の説明不足**（高）
-   - Schedulerパラメータは専門知識前提で、初心者が誤設定しやすい。
-2. **入力制約とバリデーション不足**（中）
-   - 値域のガードが薄く、失敗時メッセージも抽象的。
-3. **操作結果の粒度不足**（低）
-   - どのセクションの保存が成功したか判別しづらい。
-
-#### 改善案
-- 各パラメータに推奨範囲とヘルプ文を付与。
-- 数値入力キーボード・最小最大値チェックを追加。
-- セクション単位で成功メッセージを明確化。
-
----
-
-### 7. Backup & Restore
-
-#### 課題
-1. **導線欠損により実質アクセス不能**（高）
-2. **ファイル選択型が広すぎる**（中）
-   - `*/*` は誤選択を誘発。
-
-#### 改善案
-- Deck Detail/Settingsから遷移可能にする。
-- MIMEを `text/markdown`, `application/json` に限定。
-
-## 横断的（デザインシステム/UX）課題
-
-1. **情報アーキテクチャ（IA）の分割不足**（高）
-   - Add & Import の責務が大きすぎ、学習コストを増加。
-2. **アクセシビリティ対応の明示不足**（中）
-   - ジェスチャー依存操作に代替UIが乏しい。
-3. **文言トーンの不統一**（低）
-   - `ADD` と通常文の混在など、ラベル粒度が一定でない。
-
-## 優先度付き改善ロードマップ
-
-### P0（最優先）
-- Backup画面への導線追加。
-- Add & Importの `Manual / Bulk` 分離。
-- 無動作ボタン（Add Tag / Record Audio）の扱い整理。
-- Studyジェスチャーの可視化ヒント追加。
-
-### P1（次点）
-- Deck Listの進捗定量表示（due件数）。
-- Settingsにヘルプと入力バリデーション追加。
-- 空状態CTAの追加（学習完了時）。
-
-### P2（磨き込み）
-- 文言/命名ルール統一。
-- 編集/削除導線の画面間一貫性向上。
-- 大量デッキ時の検索・ソート機能。
+## Suggested Success Metrics
+- Reduction in first-session confusion around Study gestures.
+- Lower import failure support requests due to better diagnostics.
+- Faster implementation velocity after screen-level decomposition.
+- Better retention from improved “next action” clarity in empty states.

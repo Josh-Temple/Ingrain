@@ -658,7 +658,7 @@ private fun AppFormattingGuideDialog(
     ) {
         var sizeMenu by remember { mutableStateOf(false) }
         var colorMenu by remember { mutableStateOf(false) }
-        LabeledSettingRow(label = title, helper = "文字サイズと色の強弱") {
+        LabeledSettingRow(label = title, helper = "Adjust text size and color emphasis") {
             Box {
                 TextButton(shape = AppButtonShape, onClick = { sizeMenu = true }) { Text("${currentSize}sp") }
                 DropdownMenu(expanded = sizeMenu, onDismissRequest = { sizeMenu = false }) {
@@ -703,8 +703,8 @@ private fun AppFormattingGuideDialog(
                 Text("These Markdown styles are shared across all decks and cards.")
 
                 SurfaceCard {
-                    SectionTitle("Theme", "項目名を見やすく強調し、関連設定をまとめました")
-                    LabeledSettingRow("Bulk theme input", "CSS variables または JSON を貼り付け") {
+                    SectionTitle("Theme", "Highlight key labels and group related settings")
+                    LabeledSettingRow("Bulk theme input", "Paste CSS variables or JSON") {
                         TextField(
                             value = bulkThemeInput,
                             onValueChange = {
@@ -740,7 +740,7 @@ private fun AppFormattingGuideDialog(
                     }
                     bulkThemeMessage?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     HorizontalDivider()
-                    LabeledSettingRow("Accent", "アプリ全体の強調色") {
+                    LabeledSettingRow("Accent", "Primary accent color across the app") {
                         Box {
                             TextButton(shape = AppButtonShape, onClick = { showAccentMenu = true }) {
                                 Text(UiStylePresets.accentLabels.getOrElse(uiStyle.accentIndex) { "Blue" })
@@ -755,7 +755,7 @@ private fun AppFormattingGuideDialog(
                             }
                         }
                     }
-                    LabeledSettingRow("Background", "画面全体の背景色") {
+                    LabeledSettingRow("Background", "Background color for the whole screen") {
                         Box {
                             TextButton(shape = AppButtonShape, onClick = { showBackgroundMenu = true }) {
                                 Text(UiStylePresets.surfaceBackgroundLabels.getOrElse(uiStyle.backgroundColorIndex) { "Navy" })
@@ -770,7 +770,7 @@ private fun AppFormattingGuideDialog(
                             }
                         }
                     }
-                    LabeledSettingRow("Surface", "カードやダイアログの面色") {
+                    LabeledSettingRow("Surface", "Surface color for cards and dialogs") {
                         Box {
                             TextButton(shape = AppButtonShape, onClick = { showSurfaceMenu = true }) {
                                 Text(UiStylePresets.surfaceBackgroundLabels.getOrElse(uiStyle.surfaceColorIndex) { "Deep blue" })
@@ -785,7 +785,7 @@ private fun AppFormattingGuideDialog(
                             }
                         }
                     }
-                    LabeledSettingRow("Text", "本文の標準文字色") {
+                    LabeledSettingRow("Text", "Default body text color") {
                         Box {
                             TextButton(shape = AppButtonShape, onClick = { showTextMenu = true }) {
                                 Text(UiStylePresets.textLabels.getOrElse(uiStyle.textColorIndex) { "Ice" })
@@ -803,8 +803,8 @@ private fun AppFormattingGuideDialog(
                 }
 
                 SurfaceCard {
-                    SectionTitle("Typography", "フォントと形状をまとめて調整")
-                    LabeledSettingRow("Font", "全体で使うフォントファミリー") {
+                    SectionTitle("Typography", "Adjust font and shape together")
+                    LabeledSettingRow("Font", "Font family used throughout the app") {
                         Box {
                             TextButton(shape = AppButtonShape, onClick = { showFontMenu = true }) {
                                 Text(AppFontMode.fromId(uiStyle.fontModeId).label)
@@ -819,7 +819,7 @@ private fun AppFormattingGuideDialog(
                             }
                         }
                     }
-                    LabeledSettingRow("Button radius", "ボタン形状の印象を調整") {
+                    LabeledSettingRow("Button radius", "Adjust the button corner style") {
                         Box {
                             TextButton(shape = AppButtonShape, onClick = { showSizeMenu = true }) {
                                 Text("${uiStyle.buttonCornerRadiusDp}dp")
@@ -840,7 +840,7 @@ private fun AppFormattingGuideDialog(
                 }
 
                 SurfaceCard {
-                    SectionTitle("Markdown styles", "見出し・本文・装飾の階層を設計")
+                    SectionTitle("Markdown styles", "Define hierarchy for headings, body, and emphasis")
                     stylePickerRow(
                         title = "H3",
                         currentSize = uiStyle.h3SizeSp,
@@ -869,7 +869,7 @@ private fun AppFormattingGuideDialog(
                         onSizeSelected = { onSaveStyle(uiStyle.copy(listSizeSp = it)) },
                         onColorSelected = { onSaveStyle(uiStyle.copy(listColorIndex = it)) },
                     )
-                    LabeledSettingRow("Bold color", "強調テキスト（** **）の色") {
+                    LabeledSettingRow("Bold color", "Color for emphasized text (** **)") {
                         var boldMenu by remember { mutableStateOf(false) }
                         Box {
                             TextButton(shape = AppButtonShape, onClick = { boldMenu = true }) {
@@ -885,7 +885,7 @@ private fun AppFormattingGuideDialog(
                             }
                         }
                     }
-                    LabeledSettingRow("Italic color", "斜体テキスト（* *）の色") {
+                    LabeledSettingRow("Italic color", "Color for italic text (* *)") {
                         var italicMenu by remember { mutableStateOf(false) }
                         Box {
                             TextButton(shape = AppButtonShape, onClick = { italicMenu = true }) {
@@ -907,7 +907,7 @@ private fun AppFormattingGuideDialog(
                     Text("Reset all to default")
                 }
 
-                SectionTitle("Preview", "設定後の見え方をすぐ確認")
+                SectionTitle("Preview", "Instantly check how your settings look")
                 SurfaceCard {
                     MarkdownTokenText(
                         markdown = "### Photosynthesis\n#### Light reaction\n**Chlorophyll** captures *photon energy*\n- ATP synthesis\n- NADPH generation",
