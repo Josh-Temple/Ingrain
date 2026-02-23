@@ -8,6 +8,9 @@ private data class CardBlock(
 private data class FrontMatter(
     val deck: String,
     val tags: List<String>,
+    val studyMode: String,
+    val strictness: String,
+    val hintPolicy: String,
 )
 
 object MarkdownCardsParser {
@@ -84,7 +87,15 @@ object MarkdownCardsParser {
 
         return ParseResult.Success(
             lineNumber = block.startLine,
-            card = JsonLineCard(deck = metadata.deck, front = front, back = back, tags = metadata.tags),
+            card = JsonLineCard(
+                deck = metadata.deck,
+                front = front,
+                back = back,
+                tags = metadata.tags,
+                study_mode = metadata.studyMode.lowercase(),
+                strictness = metadata.strictness.lowercase(),
+                hint_policy = metadata.hintPolicy.lowercase(),
+            ),
         )
     }
 
@@ -93,6 +104,9 @@ object MarkdownCardsParser {
         var tagsSeen = false
         val tags = mutableListOf<String>()
         var readingTagsList = false
+        var studyMode = "BASIC"
+        var strictness = "EXACT"
+        var hintPolicy = "ENABLED"
 
         lines.forEach { raw ->
             val line = raw.trim()
@@ -126,6 +140,34 @@ object MarkdownCardsParser {
                     }
                 }
 
+                line.startsWith("study_mode:") -> {
+                    val parsed = line.removePrefix("study_mode:").trim().trim('"', '\'').lowercase()
+                    studyMode = when (parsed) {
+                        "basic" -> "BASIC"
+                        "passage_memorization" -> "PASSAGE_MEMORIZATION"
+                        else -> return null
+                    }
+                }
+
+                line.startsWith("strictness:") -> {
+                    val parsed = line.removePrefix("strictness:").trim().trim('"', '\'').lowercase()
+                    strictness = when (parsed) {
+                        "exact" -> "EXACT"
+                        "near_exact" -> "NEAR_EXACT"
+                        "meaning_only" -> "MEANING_ONLY"
+                        else -> return null
+                    }
+                }
+
+                line.startsWith("hint_policy:") -> {
+                    val parsed = line.removePrefix("hint_policy:").trim().trim('"', '\'').lowercase()
+                    hintPolicy = when (parsed) {
+                        "enabled" -> "ENABLED"
+                        "disabled" -> "DISABLED"
+                        else -> return null
+                    }
+                }
+
                 else -> {
                     if (!line.contains(':')) return null
                 }
@@ -134,7 +176,13 @@ object MarkdownCardsParser {
 
         val deckName = deck?.trim().orEmpty()
         if (deckName.isBlank() || !tagsSeen) return null
-        return FrontMatter(deck = deckName, tags = tags)
+        return FrontMatter(
+            deck = deckName,
+            tags = tags,
+            studyMode = studyMode,
+            strictness = strictness,
+            hintPolicy = hintPolicy,
+        )
     }
 
     private fun extractSection(name: String, body: List<String>): String? {

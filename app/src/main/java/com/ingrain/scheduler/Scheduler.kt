@@ -54,6 +54,15 @@ class SchedulerSettingsStore(private val context: Context) {
 }
 
 object Scheduler {
+    const val PASSAGE_GRADE_EXACT = "EXACT"
+    const val PASSAGE_GRADE_MINOR_ERRORS = "MINOR_ERRORS"
+    const val PASSAGE_GRADE_HINTED = "HINTED"
+
+    private const val MIN_PASSAGE_INTERVAL_DAYS = 0.5
+    private const val MINOR_ERRORS_INTERVAL_FACTOR = 0.7
+    private const val MINOR_ERRORS_EASE_FACTOR_WEIGHT = 0.5
+    private const val HINTED_EASE_FACTOR_WEIGHT = 0.2
+
     fun scheduleGood(card: CardEntity, nowMillis: Long, s: SchedulerSettings): CardEntity {
         val interval = when (card.repetitions) {
             0 -> s.initialIntervalGoodDays
@@ -82,5 +91,36 @@ object Scheduler {
             lastReviewedAt = nowMillis,
             updatedAt = nowMillis,
         )
+    }
+
+    fun schedulePassage(card: CardEntity, nowMillis: Long, s: SchedulerSettings, selfGrade: String, hintLevelUsed: Int): CardEntity {
+        return when {
+            selfGrade == PASSAGE_GRADE_EXACT && hintLevelUsed == 0 -> scheduleGood(card, nowMillis, s)
+            selfGrade == PASSAGE_GRADE_MINOR_ERRORS && hintLevelUsed == 0 -> {
+                val baseline = scheduleGood(card, nowMillis, s)
+                val shorterIntervalDays = maxOf(MIN_PASSAGE_INTERVAL_DAYS, baseline.intervalDays * MINOR_ERRORS_INTERVAL_FACTOR)
+                val due = nowMillis + (shorterIntervalDays * 24 * 60 * 60 * 1000).toLong()
+                baseline.copy(
+                    intervalDays = shorterIntervalDays,
+                    easeFactor = maxOf(s.minEaseFactor, card.easeFactor + (s.easeFactorStepGood * MINOR_ERRORS_EASE_FACTOR_WEIGHT)),
+                    dueAt = due,
+                )
+            }
+
+            selfGrade == PASSAGE_GRADE_HINTED || hintLevelUsed > 0 -> {
+                val hintedIntervalDays = MIN_PASSAGE_INTERVAL_DAYS
+                val due = nowMillis + (hintedIntervalDays * 24 * 60 * 60 * 1000).toLong()
+                card.copy(
+                    repetitions = 1,
+                    intervalDays = hintedIntervalDays,
+                    easeFactor = maxOf(s.minEaseFactor, card.easeFactor + (s.easeFactorStepGood * HINTED_EASE_FACTOR_WEIGHT)),
+                    dueAt = due,
+                    lastReviewedAt = nowMillis,
+                    updatedAt = nowMillis,
+                )
+            }
+
+            else -> scheduleAgain(card, nowMillis, s)
+        }
     }
 }

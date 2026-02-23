@@ -106,4 +106,28 @@ class MarkdownCardsParserTest {
         val result = BulkImportParser.parse(input).single()
         assertTrue(result is ParseResult.Success)
     }
+
+    @Test
+    fun parse_markdownCards_supports_passageMetadata() {
+        val input = """
+            ---
+            deck: Speech
+            tags: [memorization]
+            study_mode: passage_memorization
+            strictness: near_exact
+            hint_policy: disabled
+            ---
+
+            ## Front
+            Recite.
+
+            ## Back
+            Four score and seven years ago...
+        """.trimIndent()
+
+        val result = MarkdownCardsParser.parse(input).single() as ParseResult.Success
+        assertEquals("passage_memorization", result.card.study_mode)
+        assertEquals("near_exact", result.card.strictness)
+        assertEquals("disabled", result.card.hint_policy)
+    }
 }

@@ -9,6 +9,18 @@ import androidx.room.PrimaryKey
 const val DEFAULT_DAILY_REVIEW_LIMIT = 100
 const val DEFAULT_DAILY_NEW_CARD_LIMIT = 1
 
+const val STUDY_MODE_BASIC = "BASIC"
+const val STUDY_MODE_PASSAGE_MEMORIZATION = "PASSAGE_MEMORIZATION"
+
+const val STRICTNESS_EXACT = "EXACT"
+const val STRICTNESS_NEAR_EXACT = "NEAR_EXACT"
+const val STRICTNESS_MEANING_ONLY = "MEANING_ONLY"
+
+const val HINT_POLICY_ENABLED = "ENABLED"
+const val HINT_POLICY_DISABLED = "DISABLED"
+
+const val PROMPT_TYPE_FREE_RECALL = "FREE_RECALL"
+
 @Entity(tableName = "decks", indices = [Index(value = ["name"], unique = true)])
 data class DeckEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -36,6 +48,9 @@ data class CardEntity(
     @ColumnInfo(name = "deck_id") val deckId: Long,
     val front: String,
     val back: String,
+    @ColumnInfo(name = "study_mode") val studyMode: String = STUDY_MODE_BASIC,
+    val strictness: String = STRICTNESS_EXACT,
+    @ColumnInfo(name = "hint_policy") val hintPolicy: String = HINT_POLICY_ENABLED,
     @ColumnInfo(name = "tags_json") val tagsJson: String = "[]",
     @ColumnInfo(name = "created_at") val createdAt: Long,
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
@@ -45,6 +60,31 @@ data class CardEntity(
     val repetitions: Int = 0,
     val lapses: Int = 0,
     @ColumnInfo(name = "last_reviewed_at") val lastReviewedAt: Long? = null,
+)
+
+@Entity(
+    tableName = "study_attempt_logs",
+    foreignKeys = [
+        ForeignKey(
+            entity = CardEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["card_id"],
+            onDelete = ForeignKey.CASCADE,
+        )
+    ],
+    indices = [Index(value = ["card_id"]), Index(value = ["timestamp"])],
+)
+data class StudyAttemptLogEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @ColumnInfo(name = "card_id") val cardId: Long,
+    val timestamp: Long,
+    @ColumnInfo(name = "study_mode") val studyMode: String,
+    @ColumnInfo(name = "prompt_type") val promptType: String = PROMPT_TYPE_FREE_RECALL,
+    @ColumnInfo(name = "hint_level_used") val hintLevelUsed: Int = 0,
+    @ColumnInfo(name = "reveal_used") val revealUsed: Boolean = false,
+    @ColumnInfo(name = "self_grade") val selfGrade: String,
+    @ColumnInfo(name = "duration_ms") val durationMs: Long? = null,
+    @ColumnInfo(name = "error_types") val errorTypes: String? = null,
 )
 
 @Entity(
