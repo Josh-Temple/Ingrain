@@ -338,21 +338,45 @@ fun DeckListScreen(
     var showAddActionDialog by remember { mutableStateOf(false) }
     var newDeckName by remember { mutableStateOf("") }
     var addDeckError by remember { mutableStateOf<String?>(null) }
-    var showFormattingMenu by remember { mutableStateOf(false) }
+    var showTopMenu by remember { mutableStateOf(false) }
+    var showFormattingGuideDialog by remember { mutableStateOf(false) }
+    var showUsageDialog by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
     val uiStyle by uiStyleStore.settings.collectAsState(initial = UiStyleSettings())
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val clipboard = context.getSystemService(ClipboardManager::class.java)
+    val aiCardWriterPrompt = remember(context) { loadAssetText(context, "ai_card_writer_prompt.md") }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Decks") },
                 actions = {
-                    IconButton(onClick = { showFormattingMenu = true }) {
-                        Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = "Menu",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                        )
+                    Box {
+                        IconButton(onClick = { showTopMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "Menu",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                        DropdownMenu(expanded = showTopMenu, onDismissRequest = { showTopMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Usage") },
+                                onClick = {
+                                    showTopMenu = false
+                                    showUsageDialog = true
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Formatting guide") },
+                                onClick = {
+                                    showTopMenu = false
+                                    showFormattingGuideDialog = true
+                                },
+                            )
+                        }
                     }
                 },
             )
@@ -375,6 +399,14 @@ fun DeckListScreen(
                 .fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
+            if (!message.isNullOrBlank()) {
+                Text(
+                    text = message ?: "",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
             if (decks.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
@@ -421,11 +453,24 @@ fun DeckListScreen(
         }
     }
 
-    if (showFormattingMenu) {
+    if (showFormattingGuideDialog) {
         AppFormattingGuideDialog(
             uiStyle = uiStyle,
             onSaveStyle = { updated -> scope.launch { uiStyleStore.save(updated) } },
-            onDismiss = { showFormattingMenu = false }
+            onDismiss = { showFormattingGuideDialog = false }
+        )
+    }
+    if (showUsageDialog) {
+        AppUsageDialog(
+            onCopyAiPrompt = {
+                if (aiCardWriterPrompt.isNullOrBlank()) {
+                    message = "AI card writer prompt is unavailable"
+                } else {
+                    clipboard?.setPrimaryClip(ClipData.newPlainText("ai_card_writer_prompt", aiCardWriterPrompt))
+                    message = "AI card writer prompt copied to clipboard"
+                }
+            },
+            onDismiss = { showUsageDialog = false },
         )
     }
     if (showAddActionDialog) {
@@ -943,13 +988,38 @@ private fun AppFormattingGuideDialog(
 }
 
 
+@Composable
+private fun AppUsageDialog(
+    onCopyAiPrompt: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Usage") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "From this screen, you can create decks, add cards, and start studying. Begin by tapping ADD at the bottom to add a deck or a card.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Button(shape = AppButtonShape, onClick = onCopyAiPrompt) {
+                    Text("Copy AI prompt")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(shape = AppButtonShape, onClick = onDismiss) { Text("Close") }
+        },
+    )
+}
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImportScreen(deckId: Long?, repo: IngrainRepository) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val clipboard = context.getSystemService(ClipboardManager::class.java)
-    val aiCardWriterPrompt = remember(context) { loadAssetText(context, "ai_card_writer_prompt.md") }
 
     val decks by produceState(initialValue = emptyList<DeckEntity>(), repo) {
         repo.observeDecks().collect { value = it }
@@ -1096,14 +1166,6 @@ fun ImportScreen(deckId: Long?, repo: IngrainRepository) {
                     clipboard?.setPrimaryClip(ClipData.newPlainText("template", template))
                     message = "${templateFormat.label} template copied to clipboard"
                 },
-                onCopyAiPrompt = {
-                    if (aiCardWriterPrompt.isNullOrBlank()) {
-                        message = "AI card writer prompt is unavailable"
-                    } else {
-                        clipboard?.setPrimaryClip(ClipData.newPlainText("ai_card_writer_prompt", aiCardWriterPrompt))
-                        message = "AI card writer prompt copied to clipboard"
-                    }
-                },
                 onCancel = { clearDraft(preserveTags = false, preserveDeck = false) },
                 onSave = { scope.launch { submitCard() } },
             )
@@ -1147,7 +1209,6 @@ private fun ManualAddSection(
     templateFormat: TemplateFormat,
     onTemplateFormatChange: (TemplateFormat) -> Unit,
     onCopyTemplate: () -> Unit,
-    onCopyAiPrompt: () -> Unit,
     onCancel: () -> Unit,
     onSave: () -> Unit,
 ) {
@@ -1239,7 +1300,6 @@ private fun ManualAddSection(
         templateFormat = templateFormat,
         onTemplateFormatChange = onTemplateFormatChange,
         onCopyTemplate = onCopyTemplate,
-        onCopyAiPrompt = onCopyAiPrompt,
     )
 
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1285,7 +1345,6 @@ private fun TemplateSection(
     templateFormat: TemplateFormat,
     onTemplateFormatChange: (TemplateFormat) -> Unit,
     onCopyTemplate: () -> Unit,
-    onCopyAiPrompt: () -> Unit,
 ) {
     Text("Templates")
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1310,7 +1369,6 @@ private fun TemplateSection(
 
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Button(shape = AppButtonShape, onClick = onCopyTemplate) { Text("Copy template") }
-        Button(shape = AppButtonShape, onClick = onCopyAiPrompt) { Text("Copy AI prompt") }
     }
 }
 
