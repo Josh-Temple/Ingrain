@@ -34,6 +34,7 @@ Ingrain is a personal Android flashcard app inspired by Anki, optimized for **fa
   - **JSON Lines** (backward compatibility)
 - Preview parse results before importing.
 - Duplicate cards are skipped.
+- Built-in AI prompt support: users can copy `ai_card_writer_prompt.md` directly from the app and paste it into GPTs/Gems or chat tools.
 
 ### Study
 - Shows due cards in sequence.
@@ -66,7 +67,7 @@ Global style controls are available from the formatting guide:
 - `## Front` and `## Back` sections
 - `===` delimiter between cards
 
-> Backward compatibility: `### Front` / `### Back` are also accepted by parser.
+> Preferred in docs/templates: `## Front` / `## Back`. Backward compatibility: `### Front` / `### Back` are accepted by parser and AI prompt template.
 
 ### Example
 ```markdown
@@ -125,6 +126,11 @@ Main tunable settings:
 - `again_delay_minutes` (default 10)
 
 ---
+
+
+## Project structure notes
+- `templates/` stores authoring references for humans (for example `ai_card_writer_prompt.md`).
+- `app/src/main/assets/` contains runtime-accessible assets used by the app UI.
 
 ## Tech stack
 - Kotlin
