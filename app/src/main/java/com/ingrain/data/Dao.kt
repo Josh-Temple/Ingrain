@@ -115,4 +115,7 @@ interface ReviewLogDao {
 interface StudyAttemptLogDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(log: StudyAttemptLogEntity)
+
+    @Query("SELECT * FROM study_attempt_logs WHERE card_id=:cardId ORDER BY timestamp")
+    suspend fun allForCard(cardId: Long): List<StudyAttemptLogEntity>
 }

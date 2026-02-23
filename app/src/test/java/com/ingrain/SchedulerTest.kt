@@ -41,6 +41,15 @@ class SchedulerTest {
     }
 
     @Test
+    fun schedulePassage_minorErrors_isWeakerThanGood() {
+        val card = baseCard().copy(repetitions = 2, intervalDays = 8.0, easeFactor = 2.4)
+        val good = Scheduler.scheduleGood(card, now, settings)
+        val minor = Scheduler.schedulePassage(card, now, settings, Scheduler.PASSAGE_GRADE_MINOR_ERRORS, hintLevelUsed = 0)
+        assertTrue(minor.dueAt < good.dueAt)
+        assertTrue(minor.intervalDays < good.intervalDays)
+    }
+
+    @Test
     fun schedulePassage_hinted_isEarlierThanGood() {
         val card = baseCard().copy(repetitions = 2, intervalDays = 8.0, easeFactor = 2.4)
         val good = Scheduler.scheduleGood(card, now, settings)
@@ -50,9 +59,18 @@ class SchedulerTest {
     }
 
     @Test
-    fun schedulePassage_unknownGrade_fallsBackToAgain() {
+    fun schedulePassage_exactWithHint_isNotFullSuccess() {
         val card = baseCard().copy(repetitions = 2, intervalDays = 8.0, easeFactor = 2.4)
-        val fromPassage = Scheduler.schedulePassage(card, now, settings, selfGrade = "AGAIN", hintLevelUsed = 0)
+        val good = Scheduler.scheduleGood(card, now, settings)
+        val exactWithHint = Scheduler.schedulePassage(card, now, settings, Scheduler.PASSAGE_GRADE_EXACT, hintLevelUsed = 1)
+        assertTrue(exactWithHint.dueAt < good.dueAt)
+        assertEquals(0.5, exactWithHint.intervalDays, 0.0001)
+    }
+
+    @Test
+    fun schedulePassage_againGrade_mapsToAgainBehavior() {
+        val card = baseCard().copy(repetitions = 2, intervalDays = 8.0, easeFactor = 2.4)
+        val fromPassage = Scheduler.schedulePassage(card, now, settings, selfGrade = Scheduler.PASSAGE_GRADE_AGAIN, hintLevelUsed = 0)
         val fromAgain = Scheduler.scheduleAgain(card, now, settings)
         assertEquals(fromAgain.dueAt, fromPassage.dueAt)
         assertEquals(fromAgain.repetitions, fromPassage.repetitions)

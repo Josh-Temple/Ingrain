@@ -85,18 +85,20 @@ fun PassageGradeActions(
                     contentColor = MaterialTheme.colorScheme.onSurface,
                 ),
             ) { Text(PassageGrade.Again.label) }
-            Button(
-                onClick = { onGradeSelected(PassageGrade.MinorErrors) },
-                modifier = Modifier.weight(1f),
-            ) { Text(PassageGrade.MinorErrors.label) }
-            Button(
-                onClick = { onGradeSelected(PassageGrade.Exact) },
-                modifier = Modifier.weight(1f),
-            ) { Text(PassageGrade.Exact.label) }
-        }
-        if (hintUsed) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                Button(onClick = { onGradeSelected(PassageGrade.Hinted) }) { Text(PassageGrade.Hinted.label) }
+            if (hintUsed) {
+                Button(
+                    onClick = { onGradeSelected(PassageGrade.Hinted) },
+                    modifier = Modifier.weight(1f),
+                ) { Text(PassageGrade.Hinted.label) }
+            } else {
+                Button(
+                    onClick = { onGradeSelected(PassageGrade.MinorErrors) },
+                    modifier = Modifier.weight(1f),
+                ) { Text(PassageGrade.MinorErrors.label) }
+                Button(
+                    onClick = { onGradeSelected(PassageGrade.Exact) },
+                    modifier = Modifier.weight(1f),
+                ) { Text(PassageGrade.Exact.label) }
             }
         }
     }
@@ -104,7 +106,7 @@ fun PassageGradeActions(
 
 fun mapPassageGradeToSchedulerValue(grade: PassageGrade): String {
     return when (grade) {
-        PassageGrade.Again -> "AGAIN"
+        PassageGrade.Again -> Scheduler.PASSAGE_GRADE_AGAIN
         PassageGrade.Exact -> Scheduler.PASSAGE_GRADE_EXACT
         PassageGrade.MinorErrors -> Scheduler.PASSAGE_GRADE_MINOR_ERRORS
         PassageGrade.Hinted -> Scheduler.PASSAGE_GRADE_HINTED
