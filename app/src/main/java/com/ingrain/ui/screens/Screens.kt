@@ -217,7 +217,19 @@ private enum class TemplateFormat(val label: String) {
     JsonLines("JSON Lines"),
 }
 
+private const val TEMPLATE_DECK_PLACEHOLDER = "<deck-name>"
+private const val TEMPLATE_FRONT_PLACEHOLDER = "<front prompt>"
+private const val TEMPLATE_BACK_PLACEHOLDER = "<back answer>"
+private const val TEMPLATE_TAG1_PLACEHOLDER = "<tag1>"
+private const val TEMPLATE_TAG2_PLACEHOLDER = "<tag2>"
+
 private fun parseTags(raw: String): List<String> = raw.split(",").map { it.trim() }.filter { it.isNotBlank() }
+
+private fun templateValue(value: String, placeholder: String): String = value.takeIf { it.isNotBlank() } ?: placeholder
+
+private fun templateTags(raw: String): List<String> = parseTags(raw).ifEmpty {
+    listOf(TEMPLATE_TAG1_PLACEHOLDER, TEMPLATE_TAG2_PLACEHOLDER)
+}
 
 private val screenJson = Json { ignoreUnknownKeys = true }
 
@@ -257,31 +269,29 @@ private fun CardEntity.primaryTag(): String {
 }
 
 private fun jsonTemplate(deckName: String, front: String, back: String, tags: String): String {
-    val tagList = parseTags(tags).joinToString(",") { "\"$it\"" }
-    return """{"deck":"$deckName","front":"$front","back":"$back","tags":[$tagList]}"""
+    val deck = templateValue(deckName, TEMPLATE_DECK_PLACEHOLDER)
+    val frontText = templateValue(front, TEMPLATE_FRONT_PLACEHOLDER)
+    val backText = templateValue(back, TEMPLATE_BACK_PLACEHOLDER)
+    val tagList = templateTags(tags).joinToString(",") { "\"$it\"" }
+    return """{"deck":"$deck","front":"$frontText","back":"$backText","tags":[$tagList]}"""
 }
 
 private fun markdownTemplate(deckName: String, front: String, back: String, tags: String): String {
-    val tagLines = parseTags(tags)
-    val tagsBlock = if (tagLines.isEmpty()) {
-        "tags: []"
-    } else {
-        buildString {
-            appendLine("tags:")
-            tagLines.forEach { appendLine("  - \"$it\"") }
-        }.trimEnd()
-    }
+    val deck = templateValue(deckName, TEMPLATE_DECK_PLACEHOLDER)
+    val frontText = templateValue(front, TEMPLATE_FRONT_PLACEHOLDER)
+    val backText = templateValue(back, TEMPLATE_BACK_PLACEHOLDER)
+    val tagsBlock = templateTags(tags).joinToString(", ")
     return """
 ---
-deck: "$deckName"
-$tagsBlock
+deck: "$deck"
+tags: [$tagsBlock]
 ---
 
 ## Front
-$front
+$frontText
 
 ## Back
-$back
+$backText
 """.trimIndent()
 }
 
@@ -1061,7 +1071,7 @@ fun ImportScreen(deckId: Long?, repo: IngrainRepository) {
                 templateFormat = templateFormat,
                 onTemplateFormatChange = { templateFormat = it },
                 onCopyTemplate = {
-                    val targetDeck = selectedDeck?.name ?: deckName.ifBlank { "<deck-name>" }
+                    val targetDeck = selectedDeck?.name ?: deckName
                     val template = when (templateFormat) {
                         TemplateFormat.Markdown -> markdownTemplate(
                             deckName = targetDeck,

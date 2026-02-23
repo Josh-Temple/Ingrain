@@ -6,7 +6,7 @@ Separate multiple cards with `===`.
 ## Required Rules
 - Each card must start with YAML front matter.
 - Required keys: `deck`, `tags`.
-- The body must include both `### Front` and `### Back`.
+- The body must include both `## Front` and `## Back`.
 - Use `===` (single line) as the separator between cards.
 
 ## Template
@@ -16,20 +16,20 @@ Separate multiple cards with `===`.
 deck: Biology
 tags: [photosynthesis, basics]
 ---
-### Front
+## Front
 What is photosynthesis?
 
-### Back
+## Back
 Photosynthesis is the process by which plants convert light energy into chemical energy.
 ===
 ---
 deck: Biology
 tags: [chloroplast]
 ---
-### Front
+## Front
 Where does photosynthesis occur?
 
-### Back
+## Back
 It primarily occurs in chloroplasts, especially in leaf cells.
 ```
 
