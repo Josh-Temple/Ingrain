@@ -1422,6 +1422,7 @@ fun StudyScreen(
     var hintLevel by remember { mutableStateOf(PASSAGE_HINT_STAGE_NONE) }
     var revealUsed by remember { mutableStateOf(false) }
     var passagePromptType by remember { mutableStateOf(PassagePromptType.FreeRecall) }
+    var selectedClozeVariantIndex by remember { mutableStateOf<Int?>(null) }
     var attemptStartedAt by remember { mutableStateOf(System.currentTimeMillis()) }
 
     suspend fun loadDueCard() {
@@ -1443,6 +1444,13 @@ fun StudyScreen(
         hintLevel = PASSAGE_HINT_STAGE_NONE
         revealUsed = false
         passagePromptType = PassagePromptType.FreeRecall
+        selectedClozeVariantIndex = defaultClozeVariantIndex(
+            PassageClozeVariants(
+                cloze1 = card?.cloze1,
+                cloze2 = card?.cloze2,
+                cloze3 = card?.cloze3,
+            ),
+        )
         attemptStartedAt = System.currentTimeMillis()
         if (card == null) message = "You're done for today"
     }
@@ -1515,7 +1523,7 @@ fun StudyScreen(
                 )
             } else if (currentCard != null && isPassageMode) {
                 Text(
-                    text = "Prompt: ${passagePromptType.label} • Hint stage: ${if (hintLevel == PASSAGE_HINT_STAGE_NONE) "None" else "H$hintLevel"}",
+                    text = "Prompt: ${passagePromptType.label}${if (passagePromptType == PassagePromptType.ClozeRecall && selectedClozeVariantIndex != null) " (Cloze $selectedClozeVariantIndex)" else ""} • Hint stage: ${if (hintLevel == PASSAGE_HINT_STAGE_NONE) "None" else "H$hintLevel"}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1588,7 +1596,12 @@ fun StudyScreen(
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         MarkdownTokenText(
-                            markdown = buildPassagePrompt(currentCard.back, passagePromptType),
+                            markdown = buildPassagePrompt(
+                                back = currentCard.back,
+                                promptType = passagePromptType,
+                                clozeVariants = PassageClozeVariants(currentCard.cloze1, currentCard.cloze2, currentCard.cloze3),
+                                selectedClozeVariantIndex = selectedClozeVariantIndex,
+                            ),
                             textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth(),
                             uiStyle = uiStyle,
@@ -1683,10 +1696,34 @@ fun StudyScreen(
                                     PassagePromptType.FirstWordCue -> PassagePromptType.ClozeRecall
                                     PassagePromptType.ClozeRecall -> PassagePromptType.FreeRecall
                                 }
+                                if (passagePromptType != PassagePromptType.ClozeRecall) {
+                                    selectedClozeVariantIndex = null
+                                } else {
+                                    selectedClozeVariantIndex = defaultClozeVariantIndex(
+                                        PassageClozeVariants(currentCard.cloze1, currentCard.cloze2, currentCard.cloze3),
+                                    )
+                                }
                             },
                             modifier = Modifier.weight(1f),
                         ) {
                             Text("Prompt Type")
+                        }
+                        val clozeVariants = PassageClozeVariants(currentCard.cloze1, currentCard.cloze2, currentCard.cloze3)
+                        if (passagePromptType == PassagePromptType.ClozeRecall && clozeVariants.hasAny()) {
+                            Button(
+                                shape = AppButtonShape,
+                                onClick = {
+                                    selectedClozeVariantIndex = nextClozeVariantIndex(selectedClozeVariantIndex, clozeVariants)
+                                },
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                val resolvedIndex = resolveClozePrompt(
+                                    back = currentCard.back,
+                                    variants = clozeVariants,
+                                    selectedIndex = selectedClozeVariantIndex,
+                                ).second ?: 1
+                                Text("Cloze $resolvedIndex")
+                            }
                         }
                         if (hintAllowed) {
                             Button(

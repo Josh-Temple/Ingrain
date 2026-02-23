@@ -6,6 +6,10 @@ import com.ingrain.ui.screens.PASSAGE_HINT_STAGE_2
 import com.ingrain.ui.screens.PASSAGE_HINT_STAGE_3
 import com.ingrain.ui.screens.PassageGrade
 import com.ingrain.ui.screens.PassagePromptType
+import com.ingrain.ui.screens.PassageClozeVariants
+import com.ingrain.ui.screens.defaultClozeVariantIndex
+import com.ingrain.ui.screens.nextClozeVariantIndex
+import com.ingrain.ui.screens.resolveClozePrompt
 import com.ingrain.ui.screens.allowedPassageGrades
 import com.ingrain.ui.screens.buildClozePrompt
 import com.ingrain.ui.screens.buildFirstWordCue
@@ -82,4 +86,61 @@ class PassageMemorizationTest {
             allowedPassageGrades(hintUsed = true),
         )
     }
+
+
+    @Test
+    fun clozeRecall_usesPregeneratedVariantWhenAvailable() {
+        val variants = PassageClozeVariants(
+            cloze1 = "Stored cloze one",
+            cloze2 = "Stored cloze two",
+        )
+
+        val prompt = buildPassagePrompt(
+            back = sample,
+            promptType = PassagePromptType.ClozeRecall,
+            clozeVariants = variants,
+            selectedClozeVariantIndex = 2,
+        )
+
+        assertEquals("Stored cloze two", prompt)
+    }
+
+    @Test
+    fun clozeVariantSelection_skipsMissingVariantsAndCycles() {
+        val variants = PassageClozeVariants(
+            cloze1 = "C1",
+            cloze3 = "C3",
+        )
+
+        assertEquals(1, defaultClozeVariantIndex(variants))
+        assertEquals(3, nextClozeVariantIndex(1, variants))
+        assertEquals(1, nextClozeVariantIndex(3, variants))
+    }
+
+    @Test
+    fun clozeRecall_missingSelectedVariant_fallsBackSafely() {
+        val variants = PassageClozeVariants(
+            cloze1 = "C1",
+            cloze3 = "C3",
+        )
+
+        val (prompt, resolved) = resolveClozePrompt(sample, variants, selectedIndex = 2)
+        assertEquals("C1", prompt)
+        assertEquals(1, resolved)
+    }
+
+    @Test
+    fun clozeRecall_withoutPregeneratedVariants_usesGeneratedCloze() {
+        val variants = PassageClozeVariants()
+
+        val prompt = buildPassagePrompt(
+            back = sample,
+            promptType = PassagePromptType.ClozeRecall,
+            clozeVariants = variants,
+            selectedClozeVariantIndex = 1,
+        )
+
+        assertEquals(buildClozePrompt(sample), prompt)
+    }
+
 }

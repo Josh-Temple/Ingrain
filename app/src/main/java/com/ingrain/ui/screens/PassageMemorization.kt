@@ -40,6 +40,51 @@ data class ClozePromptConfig(
     val maskChar: Char = '_',
 )
 
+
+data class PassageClozeVariants(
+    val cloze1: String? = null,
+    val cloze2: String? = null,
+    val cloze3: String? = null,
+) {
+    fun availableIndexes(): List<Int> = listOfNotNull(
+        1.takeIf { !cloze1.isNullOrBlank() },
+        2.takeIf { !cloze2.isNullOrBlank() },
+        3.takeIf { !cloze3.isNullOrBlank() },
+    )
+
+    fun hasAny(): Boolean = availableIndexes().isNotEmpty()
+
+    fun byIndex(index: Int): String? {
+        val raw = when (index) {
+            1 -> cloze1
+            2 -> cloze2
+            3 -> cloze3
+            else -> null
+        }
+        return raw?.takeIf { it.isNotBlank() }
+    }
+}
+
+fun defaultClozeVariantIndex(variants: PassageClozeVariants): Int? {
+    return variants.availableIndexes().firstOrNull()
+}
+
+fun nextClozeVariantIndex(current: Int?, variants: PassageClozeVariants): Int? {
+    val available = variants.availableIndexes()
+    if (available.isEmpty()) return null
+    if (current == null) return available.first()
+    val currentPos = available.indexOf(current)
+    if (currentPos == -1) return available.first()
+    return available[(currentPos + 1) % available.size]
+}
+
+fun resolveClozePrompt(back: String, variants: PassageClozeVariants, selectedIndex: Int?): Pair<String, Int?> {
+    val available = variants.availableIndexes()
+    if (available.isEmpty()) return buildClozePrompt(back) to null
+    val preferred = selectedIndex?.takeIf { it in available } ?: available.first()
+    return (variants.byIndex(preferred) ?: buildClozePrompt(back)) to preferred
+}
+
 fun splitIntoSentencesOrLines(text: String): List<String> {
     val trimmed = text.trim()
     if (trimmed.isBlank()) return emptyList()
@@ -90,11 +135,15 @@ fun buildClozePrompt(text: String, config: ClozePromptConfig = ClozePromptConfig
         }
 }
 
-fun buildPassagePrompt(back: String, promptType: PassagePromptType): String {
+fun buildPassagePrompt(back: String, promptType: PassagePromptType, clozeVariants: PassageClozeVariants = PassageClozeVariants(), selectedClozeVariantIndex: Int? = null): String {
     return when (promptType) {
         PassagePromptType.FreeRecall -> "Recall the full passage from memory."
         PassagePromptType.FirstWordCue -> buildFirstWordCue(back)
-        PassagePromptType.ClozeRecall -> buildClozePrompt(back)
+        PassagePromptType.ClozeRecall -> resolveClozePrompt(
+            back = back,
+            variants = clozeVariants,
+            selectedIndex = selectedClozeVariantIndex,
+        ).first
     }
 }
 
