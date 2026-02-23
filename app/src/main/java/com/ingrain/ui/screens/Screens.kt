@@ -1351,6 +1351,7 @@ fun StudyScreen(
     var deckName by remember { mutableStateOf("Deck") }
     var hintLevel by remember { mutableStateOf(PASSAGE_HINT_STAGE_NONE) }
     var revealUsed by remember { mutableStateOf(false) }
+    var passagePromptType by remember { mutableStateOf(PassagePromptType.FreeRecall) }
     var attemptStartedAt by remember { mutableStateOf(System.currentTimeMillis()) }
 
     suspend fun loadDueCard() {
@@ -1371,6 +1372,7 @@ fun StudyScreen(
         showAnswer = false
         hintLevel = PASSAGE_HINT_STAGE_NONE
         revealUsed = false
+        passagePromptType = PassagePromptType.FreeRecall
         attemptStartedAt = System.currentTimeMillis()
         if (card == null) message = "You're done for today"
     }
@@ -1391,6 +1393,7 @@ fun StudyScreen(
             now = now,
             attempt = StudyAttempt(
                 studyMode = STUDY_MODE_PASSAGE_MEMORIZATION,
+                promptType = passagePromptType.storageValue,
                 hintLevelUsed = hintLevel,
                 revealUsed = revealUsed,
                 selfGrade = schedulerGrade,
@@ -1442,7 +1445,12 @@ fun StudyScreen(
                 )
             } else if (currentCard != null && isPassageMode) {
                 Text(
-                    text = "Recall first, then use Hint or Reveal Answer.",
+                    text = "Prompt: ${passagePromptType.label} • Hint stage: ${if (hintLevel == PASSAGE_HINT_STAGE_NONE) "None" else "H$hintLevel"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = "Hints used: ${if (hintLevel > PASSAGE_HINT_STAGE_NONE) "Yes" else "No"} • Answer revealed: ${if (showAnswer) "Yes" else "No"}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1501,6 +1509,22 @@ fun StudyScreen(
                         color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f),
                     )
                     Spacer(modifier = Modifier.height(26.dp))
+
+                    if (isPassageMode && !showAnswer) {
+                        Text(
+                            text = "Prompt: ${passagePromptType.label}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        MarkdownTokenText(
+                            markdown = buildPassagePrompt(currentCard.back, passagePromptType),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                            uiStyle = uiStyle,
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                    }
 
                     if (isPassageMode && hintLevel > PASSAGE_HINT_STAGE_NONE && !showAnswer) {
                         Text(
@@ -1581,6 +1605,19 @@ fun StudyScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
+                        Button(
+                            shape = AppButtonShape,
+                            onClick = {
+                                passagePromptType = when (passagePromptType) {
+                                    PassagePromptType.FreeRecall -> PassagePromptType.FirstWordCue
+                                    PassagePromptType.FirstWordCue -> PassagePromptType.ClozeRecall
+                                    PassagePromptType.ClozeRecall -> PassagePromptType.FreeRecall
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text("Prompt Type")
+                        }
                         if (hintAllowed) {
                             Button(
                                 shape = AppButtonShape,
@@ -1605,6 +1642,12 @@ fun StudyScreen(
                         }
                     }
                 } else {
+                    Text(
+                        text = if (hintLevel > PASSAGE_HINT_STAGE_NONE) "Grading: Again or Hinted (hints were used)." else "Grading: Again / Minor errors / Exact.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
                     PassageGradeActions(
                         hintUsed = hintLevel > PASSAGE_HINT_STAGE_NONE,
                         onGradeSelected = { selectedGrade ->

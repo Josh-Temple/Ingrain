@@ -20,6 +20,8 @@ const val HINT_POLICY_ENABLED = "ENABLED"
 const val HINT_POLICY_DISABLED = "DISABLED"
 
 const val PROMPT_TYPE_FREE_RECALL = "FREE_RECALL"
+const val PROMPT_TYPE_FIRST_WORD_CUE = "FIRST_WORD_CUE"
+const val PROMPT_TYPE_CLOZE_RECALL = "CLOZE_RECALL"
 
 @Entity(tableName = "decks", indices = [Index(value = ["name"], unique = true)])
 data class DeckEntity(
