@@ -153,8 +153,9 @@ If that appears, run verification in CI or a local setup with matching JDK/Gradl
 ## CI build strategy (debug APK)
 If you develop mainly on mobile, generate installable debug APKs via GitHub Actions.
 
-- Add workflow: `.github/workflows/android-debug-apk.yml`
-- Use a fixed debug keystore + monotonically increasing `versionCode` for updatable installs.
+- Standard workflow in this repo: `.github/workflows/android-debug-apk.yml`
+- Reusable workflow for other repositories: `.github/workflows/reusable-android-debug-apk.yml`
+- Uses a fixed debug keystore + monotonically increasing `versionCode` for updatable installs.
 
 Required repository secrets:
 - `DEBUG_KEYSTORE_BASE64`
@@ -163,3 +164,28 @@ Required repository secrets:
 - `DEBUG_KEY_PASSWORD`
 
 Without secrets, builds can still run, but APK signing may differ and block upgrade install over previous builds.
+
+### Reuse from another repository
+In another repository, call this reusable workflow:
+
+```yaml
+name: Android Debug APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: <OWNER>/<REPO>/.github/workflows/reusable-android-debug-apk.yml@main
+    with:
+      app_module: app
+      gradle_task: assembleDebug
+      allow_ephemeral_signing: false
+    secrets:
+      DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+      DEBUG_KEYSTORE_PASSWORD: ${{ secrets.DEBUG_KEYSTORE_PASSWORD }}
+      DEBUG_KEY_ALIAS: ${{ secrets.DEBUG_KEY_ALIAS }}
+      DEBUG_KEY_PASSWORD: ${{ secrets.DEBUG_KEY_PASSWORD }}
+```
+
+If your repository is private, ensure workflow access policy allows calling workflows from this repository (or copy the reusable workflow file into your own repository).
