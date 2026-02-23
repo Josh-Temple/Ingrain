@@ -76,7 +76,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ingrain.data.CardEntity
 import com.ingrain.data.DeckEntity
+import com.ingrain.data.HINT_POLICY_DISABLED
 import com.ingrain.data.IngrainRepository
+import com.ingrain.data.STUDY_MODE_PASSAGE_MEMORIZATION
+import com.ingrain.data.StudyAttempt
 import com.ingrain.importing.BulkImportParser
 import com.ingrain.importing.ParseResult
 import com.ingrain.scheduler.Scheduler
@@ -1336,6 +1339,9 @@ fun StudyScreen(
     var remainingToday by remember { mutableStateOf(0) }
     var pendingCardDelete by remember { mutableStateOf<CardEntity?>(null) }
     var deckName by remember { mutableStateOf("Deck") }
+    var hintLevel by remember { mutableStateOf(PASSAGE_HINT_STAGE_NONE) }
+    var revealUsed by remember { mutableStateOf(false) }
+    var attemptStartedAt by remember { mutableStateOf(System.currentTimeMillis()) }
 
     suspend fun loadDueCard() {
         val deck = repo.getDeck(deckId)
@@ -1353,6 +1359,9 @@ fun StudyScreen(
         card = repo.nextDueCard(deck, now, dayStart, dayEnd)
         remainingToday = repo.countDueUntil(deck, dayStart, dayEnd, dayEnd)
         showAnswer = false
+        hintLevel = PASSAGE_HINT_STAGE_NONE
+        revealUsed = false
+        attemptStartedAt = System.currentTimeMillis()
         if (card == null) message = "You're done for today"
     }
 
@@ -1362,11 +1371,32 @@ fun StudyScreen(
         loadDueCard()
     }
 
+    suspend fun submitPassageReview(currentCard: CardEntity, grade: PassageGrade) {
+        val now = System.currentTimeMillis()
+        val settings = settingsStore.settings.first()
+        val schedulerGrade = mapPassageGradeToSchedulerValue(grade)
+        repo.reviewPassage(
+            card = currentCard,
+            settings = settings,
+            now = now,
+            attempt = StudyAttempt(
+                studyMode = STUDY_MODE_PASSAGE_MEMORIZATION,
+                hintLevelUsed = hintLevel,
+                revealUsed = revealUsed,
+                selfGrade = schedulerGrade,
+                durationMs = (now - attemptStartedAt).coerceAtLeast(0),
+            ),
+        )
+        loadDueCard()
+    }
+
     LaunchedEffect(deckId) { loadDueCard() }
 
     Scaffold { p ->
         val currentCard = card
         val progressText = if (remainingToday <= 0) "Done" else remainingToday.toString()
+        val isPassageMode = currentCard?.studyMode == STUDY_MODE_PASSAGE_MEMORIZATION
+        val hintAllowed = isPassageMode && currentCard?.hintPolicy != HINT_POLICY_DISABLED
 
         Column(
             modifier = Modifier
@@ -1374,7 +1404,7 @@ fun StudyScreen(
                 .padding(p)
                 .padding(horizontal = 16.dp, vertical = 20.dp)
                 .pointerInput(currentCard?.id, showAnswer) {
-                    if (currentCard != null && !showAnswer) {
+                    if (currentCard != null && !showAnswer && !isPassageMode) {
                         detectTapGestures { showAnswer = true }
                     }
                 },
@@ -1394,9 +1424,15 @@ fun StudyScreen(
                     modifier = Modifier.align(Alignment.Center),
                 )
             }
-            if (currentCard != null && !showAnswer && uiStyle.showStudyRevealGuide) {
+            if (currentCard != null && !showAnswer && uiStyle.showStudyRevealGuide && !isPassageMode) {
                 Text(
                     text = "Tap card to reveal answer • Swipe up to edit",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else if (currentCard != null && isPassageMode) {
+                Text(
+                    text = "Recall first, then use Hint or Reveal Answer.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1456,6 +1492,21 @@ fun StudyScreen(
                     )
                     Spacer(modifier = Modifier.height(26.dp))
 
+                    if (isPassageMode && hintLevel > PASSAGE_HINT_STAGE_NONE && !showAnswer) {
+                        Text(
+                            text = "Hint H$hintLevel",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        MarkdownTokenText(
+                            markdown = buildPassageHint(currentCard.back, hintLevel),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                            uiStyle = uiStyle,
+                        )
+                    }
+
                     if (showAnswer) {
                         MarkdownTokenText(
                             markdown = currentCard.back,
@@ -1467,7 +1518,7 @@ fun StudyScreen(
                 }
             }
 
-            if (currentCard != null && showAnswer) {
+            if (currentCard != null && !isPassageMode && showAnswer) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -1505,6 +1556,51 @@ fun StudyScreen(
                             Text("Good")
                         }
                     }
+                }
+                TextButton(shape = AppButtonShape,
+                    onClick = { pendingCardDelete = currentCard },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                ) {
+                    Text("Delete card", color = MaterialTheme.colorScheme.error)
+                }
+            } else if (currentCard != null && isPassageMode) {
+                if (!showAnswer) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        if (hintAllowed) {
+                            Button(
+                                shape = AppButtonShape,
+                                onClick = {
+                                    hintLevel = (hintLevel + 1).coerceAtMost(PASSAGE_HINT_STAGE_3)
+                                },
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                val label = if (hintLevel >= PASSAGE_HINT_STAGE_3) "Hint (max)" else "Hint"
+                                Text(label)
+                            }
+                        }
+                        Button(
+                            shape = AppButtonShape,
+                            onClick = {
+                                showAnswer = true
+                                revealUsed = true
+                            },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text("Reveal Answer")
+                        }
+                    }
+                } else {
+                    PassageGradeActions(
+                        hintUsed = hintLevel > PASSAGE_HINT_STAGE_NONE,
+                        onGradeSelected = { selectedGrade ->
+                            scope.launch { submitPassageReview(currentCard, selectedGrade) }
+                        },
+                    )
                 }
                 TextButton(shape = AppButtonShape,
                     onClick = { pendingCardDelete = currentCard },

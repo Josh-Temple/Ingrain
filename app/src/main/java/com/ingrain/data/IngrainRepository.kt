@@ -11,8 +11,40 @@ data class ImportSummary(val added: Int, val skipped: Int, val failed: Int)
 
 data class DueCardView(val deck: DeckEntity, val card: CardEntity?)
 
+data class StudyAttempt(
+    val studyMode: String,
+    val promptType: String = PROMPT_TYPE_FREE_RECALL,
+    val hintLevelUsed: Int = 0,
+    val revealUsed: Boolean = false,
+    val selfGrade: String,
+    val durationMs: Long? = null,
+    val errorTypes: String? = null,
+)
+
 class IngrainRepository(private val db: AppDatabase) {
     private val json = Json
+
+    private fun normalizeStudyMode(raw: String?): String {
+        return when (raw?.trim()?.lowercase()) {
+            "passage_memorization" -> STUDY_MODE_PASSAGE_MEMORIZATION
+            else -> STUDY_MODE_BASIC
+        }
+    }
+
+    private fun normalizeStrictness(raw: String?): String {
+        return when (raw?.trim()?.lowercase()) {
+            "near_exact" -> STRICTNESS_NEAR_EXACT
+            "meaning_only" -> STRICTNESS_MEANING_ONLY
+            else -> STRICTNESS_EXACT
+        }
+    }
+
+    private fun normalizeHintPolicy(raw: String?): String {
+        return when (raw?.trim()?.lowercase()) {
+            "disabled" -> HINT_POLICY_DISABLED
+            else -> HINT_POLICY_ENABLED
+        }
+    }
 
     fun observeDecks(): Flow<List<DeckEntity>> = db.deckDao().observeAll()
 
@@ -101,6 +133,7 @@ class IngrainRepository(private val db: AppDatabase) {
                     deckId = deck.id,
                     front = trimmedFront,
                     back = trimmedBack,
+                    studyMode = STUDY_MODE_BASIC,
                     tagsJson = json.encodeToString(tags),
                     createdAt = now,
                     updatedAt = now,
@@ -156,6 +189,53 @@ class IngrainRepository(private val db: AppDatabase) {
                 newEaseFactor = updated.easeFactor,
             ),
         )
+        db.studyAttemptLogDao().insert(
+            StudyAttemptLogEntity(
+                cardId = card.id,
+                timestamp = now,
+                studyMode = STUDY_MODE_BASIC,
+                selfGrade = rating,
+                revealUsed = true,
+            ),
+        )
+        return updated
+    }
+
+    suspend fun reviewPassage(card: CardEntity, attempt: StudyAttempt, settings: SchedulerSettings, now: Long): CardEntity {
+        val updated = Scheduler.schedulePassage(
+            card = card,
+            nowMillis = now,
+            s = settings,
+            selfGrade = attempt.selfGrade,
+            hintLevelUsed = attempt.hintLevelUsed,
+        )
+        db.cardDao().update(updated)
+        db.reviewLogDao().insert(
+            ReviewLogEntity(
+                cardId = card.id,
+                reviewedAt = now,
+                rating = attempt.selfGrade,
+                prevDueAt = card.dueAt,
+                newDueAt = updated.dueAt,
+                prevIntervalDays = card.intervalDays,
+                newIntervalDays = updated.intervalDays,
+                prevEaseFactor = card.easeFactor,
+                newEaseFactor = updated.easeFactor,
+            ),
+        )
+        db.studyAttemptLogDao().insert(
+            StudyAttemptLogEntity(
+                cardId = card.id,
+                timestamp = now,
+                studyMode = attempt.studyMode,
+                promptType = attempt.promptType,
+                hintLevelUsed = attempt.hintLevelUsed,
+                revealUsed = attempt.revealUsed,
+                selfGrade = attempt.selfGrade,
+                durationMs = attempt.durationMs,
+                errorTypes = attempt.errorTypes,
+            ),
+        )
         return updated
     }
 
@@ -185,6 +265,9 @@ class IngrainRepository(private val db: AppDatabase) {
                                 deckId = deck.id,
                                 front = c.front,
                                 back = c.back,
+                                studyMode = normalizeStudyMode(c.study_mode),
+                                strictness = normalizeStrictness(c.strictness),
+                                hintPolicy = normalizeHintPolicy(c.hint_policy),
                                 tagsJson = tagsJson,
                                 createdAt = now,
                                 updatedAt = now,
@@ -219,6 +302,15 @@ class IngrainRepository(private val db: AppDatabase) {
                     appendLine("tags:")
                     tags.forEach { appendLine("  - $it") }
                 }
+                if (card.studyMode != STUDY_MODE_BASIC) {
+                    appendLine("study_mode: \"${card.studyMode.lowercase()}\"")
+                }
+                if (card.strictness != STRICTNESS_EXACT) {
+                    appendLine("strictness: \"${card.strictness.lowercase()}\"")
+                }
+                if (card.hintPolicy != HINT_POLICY_ENABLED) {
+                    appendLine("hint_policy: \"${card.hintPolicy.lowercase()}\"")
+                }
                 appendLine("---")
                 appendLine()
                 appendLine("## Front")
@@ -239,6 +331,9 @@ class IngrainRepository(private val db: AppDatabase) {
                     "front" to card.front,
                     "back" to card.back,
                     "tags" to runCatching { json.decodeFromString<List<String>>(card.tagsJson) }.getOrDefault(emptyList()),
+                    "study_mode" to card.studyMode.lowercase(),
+                    "strictness" to card.strictness.lowercase(),
+                    "hint_policy" to card.hintPolicy.lowercase(),
                     "due_at" to card.dueAt,
                     "interval_days" to card.intervalDays,
                     "ease_factor" to card.easeFactor,

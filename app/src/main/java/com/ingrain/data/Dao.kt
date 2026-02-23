@@ -110,3 +110,9 @@ interface ReviewLogDao {
     )
     suspend fun countNewCardsReviewedToday(deckId: Long, dayStart: Long, dayEnd: Long): Int
 }
+
+@Dao
+interface StudyAttemptLogDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(log: StudyAttemptLogEntity)
+}
