@@ -46,6 +46,11 @@ class IngrainRepository(private val db: AppDatabase) {
         }
     }
 
+
+    private fun normalizeOptionalText(raw: String?): String? {
+        return raw?.trim()?.takeIf { it.isNotBlank() }
+    }
+
     fun observeDecks(): Flow<List<DeckEntity>> = db.deckDao().observeAll()
 
     suspend fun createDeck(name: String): Result<Unit> = runCatching {
@@ -268,6 +273,9 @@ class IngrainRepository(private val db: AppDatabase) {
                                 studyMode = normalizeStudyMode(c.study_mode),
                                 strictness = normalizeStrictness(c.strictness),
                                 hintPolicy = normalizeHintPolicy(c.hint_policy),
+                                cloze1 = normalizeOptionalText(c.cloze1),
+                                cloze2 = normalizeOptionalText(c.cloze2),
+                                cloze3 = normalizeOptionalText(c.cloze3),
                                 tagsJson = tagsJson,
                                 createdAt = now,
                                 updatedAt = now,
@@ -311,6 +319,9 @@ class IngrainRepository(private val db: AppDatabase) {
                 if (card.hintPolicy != HINT_POLICY_ENABLED) {
                     appendLine("hint_policy: \"${card.hintPolicy.lowercase()}\"")
                 }
+                card.cloze1?.takeIf { it.isNotBlank() }?.let { appendLine("cloze1: \"$it\"") }
+                card.cloze2?.takeIf { it.isNotBlank() }?.let { appendLine("cloze2: \"$it\"") }
+                card.cloze3?.takeIf { it.isNotBlank() }?.let { appendLine("cloze3: \"$it\"") }
                 appendLine("---")
                 appendLine()
                 appendLine("## Front")
@@ -334,6 +345,9 @@ class IngrainRepository(private val db: AppDatabase) {
                     "study_mode" to card.studyMode.lowercase(),
                     "strictness" to card.strictness.lowercase(),
                     "hint_policy" to card.hintPolicy.lowercase(),
+                    "cloze1" to card.cloze1,
+                    "cloze2" to card.cloze2,
+                    "cloze3" to card.cloze3,
                     "due_at" to card.dueAt,
                     "interval_days" to card.intervalDays,
                     "ease_factor" to card.easeFactor,

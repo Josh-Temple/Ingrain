@@ -11,6 +11,9 @@ private data class FrontMatter(
     val studyMode: String,
     val strictness: String,
     val hintPolicy: String,
+    val cloze1: String?,
+    val cloze2: String?,
+    val cloze3: String?,
 )
 
 object MarkdownCardsParser {
@@ -95,6 +98,9 @@ object MarkdownCardsParser {
                 study_mode = metadata.studyMode.lowercase(),
                 strictness = metadata.strictness.lowercase(),
                 hint_policy = metadata.hintPolicy.lowercase(),
+                cloze1 = metadata.cloze1,
+                cloze2 = metadata.cloze2,
+                cloze3 = metadata.cloze3,
             ),
         )
     }
@@ -107,6 +113,9 @@ object MarkdownCardsParser {
         var studyMode = "BASIC"
         var strictness = "EXACT"
         var hintPolicy = "ENABLED"
+        var cloze1: String? = null
+        var cloze2: String? = null
+        var cloze3: String? = null
 
         lines.forEach { raw ->
             val line = raw.trim()
@@ -168,6 +177,18 @@ object MarkdownCardsParser {
                     }
                 }
 
+                line.startsWith("cloze1:") -> {
+                    cloze1 = line.removePrefix("cloze1:").trim().trim('"', '\'').ifBlank { null }
+                }
+
+                line.startsWith("cloze2:") -> {
+                    cloze2 = line.removePrefix("cloze2:").trim().trim('"', '\'').ifBlank { null }
+                }
+
+                line.startsWith("cloze3:") -> {
+                    cloze3 = line.removePrefix("cloze3:").trim().trim('"', '\'').ifBlank { null }
+                }
+
                 else -> {
                     if (!line.contains(':')) return null
                 }
@@ -182,6 +203,9 @@ object MarkdownCardsParser {
             studyMode = studyMode,
             strictness = strictness,
             hintPolicy = hintPolicy,
+            cloze1 = cloze1,
+            cloze2 = cloze2,
+            cloze3 = cloze3,
         )
     }
 

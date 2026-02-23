@@ -157,6 +157,8 @@ class MarkdownCardsParserTest {
             study_mode: passage_memorization
             strictness: near_exact
             hint_policy: disabled
+            cloze1: "Four ____ and seven ____ ago..."
+            cloze3: "____ score and ____ years ago..."
             ---
 
             ## Front
@@ -170,5 +172,28 @@ class MarkdownCardsParserTest {
         assertEquals("passage_memorization", result.card.study_mode)
         assertEquals("near_exact", result.card.strictness)
         assertEquals("disabled", result.card.hint_policy)
+        assertEquals("Four ____ and seven ____ ago...", result.card.cloze1)
+        assertEquals(null, result.card.cloze2)
+        assertEquals("____ score and ____ years ago...", result.card.cloze3)
+    }
+
+    @Test
+    fun parse_markdownCards_emptyClozeValue_treatedAsAbsent() {
+        val input = """
+            ---
+            deck: Speech
+            tags: [memorization]
+            cloze1: ""
+            ---
+
+            ## Front
+            Recite.
+
+            ## Back
+            Passage.
+        """.trimIndent()
+
+        val result = MarkdownCardsParser.parse(input).single() as ParseResult.Success
+        assertEquals(null, result.card.cloze1)
     }
 }
