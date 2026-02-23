@@ -12,7 +12,7 @@
   - For backward compatibility, `### Front` / `### Back` are also accepted.
 - Backup/Restore export format is Markdown (`ingrain-backup.md`).
 - The renderer uses style tokens (heading3 / heading4 / paragraph / list / strong / emphasis), not CSS, and reflects App formatting guide settings.
-- In Add Card, `Templates` allows choosing `Markdown` / `JSON Lines` and copying a template.
+- In Add Card, `Templates` allows choosing `Markdown` / `JSON Lines`, copying a format template, and copying the built-in AI card writer prompt (`ai_card_writer_prompt.md` from app assets).
 - The formatting guide is centralized under Decks → top-right `Menu` → `App formatting guide`.
   - Users can change theme (Primary/Background/Surface/Text), font (System default / Helvetica preferred), and Markdown style size/color (H3/H4/Body/List/Bold/Italic).
   - Live preview and reset are supported.
@@ -24,10 +24,10 @@
 - Simplified font selection in `App formatting guide` to direct `AppFontMode` references for readability.
 
 ## Next Tasks
-1. Finalize Markdown card syntax v1 docs.
-   - Current: YAML front matter (`deck`, `tags`) + `## Front` / `## Back` (`###` accepted) + `===`
-   - Remaining: fine-tune error wording/line-number precision; sync fully with template docs.
-2. Strengthen parser/validator incrementally.
+1. Strengthen parser/validator incrementally.
+   - Current: YAML front matter (`deck`, `tags`) + `## Front` / `## Back` (and legacy `###`) + `===` is documented in README/templates and supported in parser.
+   - Remaining: fine-tune error wording/line-number precision and strict handling for edge-case YAML.
+2. Continue import UX hardening.
    - Current: detects missing required sections, invalid front matter, empty Front/Back.
    - Remaining: strict handling for YAML escaping and complex structures.
 3. Expand renderer policy.
@@ -47,4 +47,5 @@
 - **Theme granularity gap**: Global styling currently focuses on `primary` and `shapes.small`; broader customization strategy is still unclear.
 - **Study discoverability**: Tap-to-reveal and swipe-up-to-edit gesture model may be hard for first-time users to discover.
 - **Import failure observability**: `importParsed` aggregates exceptions with `failed++`, making root-cause analysis and UI detail weak.
+- **Template drift risk**: keep `templates/ai_card_writer_prompt.md` and `app/src/main/assets/ai_card_writer_prompt.md` synchronized when updating prompt text.
 - **Build reproducibility**: Current environment may hit `Unsupported class file major version 69`, causing unstable local verification.

@@ -233,6 +233,12 @@ private fun templateTags(raw: String): List<String> = parseTags(raw).ifEmpty {
 
 private val screenJson = Json { ignoreUnknownKeys = true }
 
+private fun loadAssetText(context: android.content.Context, fileName: String): String? {
+    return runCatching {
+        context.assets.open(fileName).bufferedReader().use { it.readText() }
+    }.getOrNull()
+}
+
 @Composable
 private fun AppTextField(
     value: String,
@@ -943,6 +949,7 @@ fun ImportScreen(deckId: Long?, repo: IngrainRepository) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val clipboard = context.getSystemService(ClipboardManager::class.java)
+    val aiCardWriterPrompt = remember(context) { loadAssetText(context, "ai_card_writer_prompt.md") }
 
     val decks by produceState(initialValue = emptyList<DeckEntity>(), repo) {
         repo.observeDecks().collect { value = it }
@@ -1089,6 +1096,14 @@ fun ImportScreen(deckId: Long?, repo: IngrainRepository) {
                     clipboard?.setPrimaryClip(ClipData.newPlainText("template", template))
                     message = "${templateFormat.label} template copied to clipboard"
                 },
+                onCopyAiPrompt = {
+                    if (aiCardWriterPrompt.isNullOrBlank()) {
+                        message = "AI card writer prompt is unavailable"
+                    } else {
+                        clipboard?.setPrimaryClip(ClipData.newPlainText("ai_card_writer_prompt", aiCardWriterPrompt))
+                        message = "AI card writer prompt copied to clipboard"
+                    }
+                },
                 onCancel = { clearDraft(preserveTags = false, preserveDeck = false) },
                 onSave = { scope.launch { submitCard() } },
             )
@@ -1132,6 +1147,7 @@ private fun ManualAddSection(
     templateFormat: TemplateFormat,
     onTemplateFormatChange: (TemplateFormat) -> Unit,
     onCopyTemplate: () -> Unit,
+    onCopyAiPrompt: () -> Unit,
     onCancel: () -> Unit,
     onSave: () -> Unit,
 ) {
@@ -1223,6 +1239,7 @@ private fun ManualAddSection(
         templateFormat = templateFormat,
         onTemplateFormatChange = onTemplateFormatChange,
         onCopyTemplate = onCopyTemplate,
+        onCopyAiPrompt = onCopyAiPrompt,
     )
 
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1268,6 +1285,7 @@ private fun TemplateSection(
     templateFormat: TemplateFormat,
     onTemplateFormatChange: (TemplateFormat) -> Unit,
     onCopyTemplate: () -> Unit,
+    onCopyAiPrompt: () -> Unit,
 ) {
     Text("Templates")
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1292,6 +1310,7 @@ private fun TemplateSection(
 
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Button(shape = AppButtonShape, onClick = onCopyTemplate) { Text("Copy template") }
+        Button(shape = AppButtonShape, onClick = onCopyAiPrompt) { Text("Copy AI prompt") }
         Button(shape = AppButtonShape, onClick = {
             val default = addTemplates.first()
             val updatedTags = if (simpleMode) draft.tags else default.tags
