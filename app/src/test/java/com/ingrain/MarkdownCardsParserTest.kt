@@ -108,6 +108,47 @@ class MarkdownCardsParserTest {
     }
 
     @Test
+    fun parse_markdownCards_legacyWithoutPassageMetadata_stillParses() {
+        val input = """
+            ---
+            deck: Legacy
+            tags: [old]
+            ---
+
+            ## Front
+            Prompt
+
+            ## Back
+            Response
+        """.trimIndent()
+
+        val result = MarkdownCardsParser.parse(input).single() as ParseResult.Success
+        assertEquals(null, result.card.study_mode)
+        assertEquals(null, result.card.strictness)
+        assertEquals(null, result.card.hint_policy)
+    }
+
+    @Test
+    fun parse_markdownCards_invalidStudyMode_failsSafely() {
+        val input = """
+            ---
+            deck: Speech
+            tags: [memorization]
+            study_mode: not_a_real_mode
+            ---
+
+            ## Front
+            Recite.
+
+            ## Back
+            Passage.
+        """.trimIndent()
+
+        val result = MarkdownCardsParser.parse(input).single()
+        assertTrue(result is ParseResult.Error)
+    }
+
+    @Test
     fun parse_markdownCards_supports_passageMetadata() {
         val input = """
             ---

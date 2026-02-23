@@ -54,6 +54,7 @@ class SchedulerSettingsStore(private val context: Context) {
 }
 
 object Scheduler {
+    const val PASSAGE_GRADE_AGAIN = "AGAIN"
     const val PASSAGE_GRADE_EXACT = "EXACT"
     const val PASSAGE_GRADE_MINOR_ERRORS = "MINOR_ERRORS"
     const val PASSAGE_GRADE_HINTED = "HINTED"
@@ -95,6 +96,7 @@ object Scheduler {
 
     fun schedulePassage(card: CardEntity, nowMillis: Long, s: SchedulerSettings, selfGrade: String, hintLevelUsed: Int): CardEntity {
         return when {
+            selfGrade == PASSAGE_GRADE_AGAIN -> scheduleAgain(card, nowMillis, s)
             selfGrade == PASSAGE_GRADE_EXACT && hintLevelUsed == 0 -> scheduleGood(card, nowMillis, s)
             selfGrade == PASSAGE_GRADE_MINOR_ERRORS && hintLevelUsed == 0 -> {
                 val baseline = scheduleGood(card, nowMillis, s)
