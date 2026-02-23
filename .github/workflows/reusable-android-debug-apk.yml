@@ -1,0 +1,184 @@
+name: Reusable Android Debug APK Build
+
+on:
+  workflow_call:
+    inputs:
+      app_module:
+        description: "Gradle module path to build (e.g. app)"
+        required: false
+        default: "app"
+        type: string
+      gradle_task:
+        description: "Gradle task name to execute"
+        required: false
+        default: "assembleDebug"
+        type: string
+      java_version:
+        description: "Java version used by setup-java"
+        required: false
+        default: "17"
+        type: string
+      artifact_name:
+        description: "Artifact name when fixed signing is available"
+        required: false
+        default: "android-debug-apk"
+        type: string
+      artifact_name_ephemeral:
+        description: "Artifact name when ephemeral signing is used"
+        required: false
+        default: "android-debug-apk-fresh-install-only"
+        type: string
+      apk_glob:
+        description: "Glob path for generated APK files"
+        required: false
+        default: "**/build/outputs/apk/debug/*.apk"
+        type: string
+      allow_ephemeral_signing:
+        description: "Allow fallback debug signing when signing secrets are missing"
+        required: false
+        default: false
+        type: boolean
+      version_name_prefix:
+        description: "Version name prefix. Final versionName is <prefix>.<run_number>"
+        required: false
+        default: "1.0"
+        type: string
+    secrets:
+      DEBUG_KEYSTORE_BASE64:
+        required: false
+      DEBUG_KEYSTORE_PASSWORD:
+        required: false
+      DEBUG_KEY_ALIAS:
+        required: false
+      DEBUG_KEY_PASSWORD:
+        required: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      VERSION_CODE: ${{ github.run_number }}
+      VERSION_NAME: ${{ inputs.version_name_prefix }}.${{ github.run_number }}
+      ALLOW_EPHEMERAL_SIGNING: ${{ inputs.allow_ephemeral_signing }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java_version }}
+          cache: gradle
+
+      - name: Prepare debug keystore (optional)
+        id: signing
+        env:
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+          DEBUG_KEYSTORE_PASSWORD: ${{ secrets.DEBUG_KEYSTORE_PASSWORD }}
+          DEBUG_KEY_ALIAS: ${{ secrets.DEBUG_KEY_ALIAS }}
+          DEBUG_KEY_PASSWORD: ${{ secrets.DEBUG_KEY_PASSWORD }}
+        run: |
+          if [ -z "$DEBUG_KEYSTORE_BASE64" ] || [ -z "$DEBUG_KEYSTORE_PASSWORD" ] || [ -z "$DEBUG_KEY_ALIAS" ] || [ -z "$DEBUG_KEY_PASSWORD" ]; then
+            echo "SIGNING_READY=false" >> "$GITHUB_ENV"
+            echo "missing=true" >> "$GITHUB_OUTPUT"
+            echo "Missing debug signing secrets. Building with ephemeral debug key instead." >&2
+            echo "Set DEBUG_KEYSTORE_BASE64 / DEBUG_KEYSTORE_PASSWORD / DEBUG_KEY_ALIAS / DEBUG_KEY_PASSWORD to generate an updatable APK." >&2
+
+            if [ "$ALLOW_EPHEMERAL_SIGNING" != "true" ]; then
+              echo "Ephemeral signing is disabled. Failing the workflow to avoid publishing a non-updatable APK." >&2
+              exit 1
+            fi
+
+            exit 0
+          fi
+
+          python - <<'PYTHON'
+          import base64
+          import os
+          import re
+          import sys
+          from pathlib import Path
+
+          encoded = os.environ["DEBUG_KEYSTORE_BASE64"]
+          output = Path(os.environ["RUNNER_TEMP"]) / "debug.keystore"
+
+          compact = re.sub(r"\s+", "", encoded)
+          candidates = {
+              encoded.strip(),
+              compact,
+              compact.replace("-", "+").replace("_", "/"),
+              compact.strip('"\''),
+              compact.strip('"\'').replace("-", "+").replace("_", "/"),
+              compact.replace("\\n", "").replace("\\r", ""),
+          }
+
+          if "base64," in compact:
+              data_url_value = compact.split("base64,", 1)[1]
+              candidates.add(data_url_value)
+              candidates.add(data_url_value.replace("-", "+").replace("_", "/"))
+
+          for value in candidates:
+              if not value:
+                  continue
+
+              padded = value + ("=" * ((4 - len(value) % 4) % 4))
+
+              try:
+                  data = base64.b64decode(padded, validate=True)
+              except Exception:
+                  continue
+
+              output.write_bytes(data)
+              sys.exit(0)
+
+          print("Failed to decode DEBUG_KEYSTORE_BASE64. Re-create the secret from the .jks file using base64 without extra formatting.", file=sys.stderr)
+          print("Recommended command: base64 -w 0 debug.keystore", file=sys.stderr)
+          sys.exit(1)
+          PYTHON
+
+          echo "SIGNING_READY=true" >> "$GITHUB_ENV"
+          echo "missing=false" >> "$GITHUB_OUTPUT"
+          echo "DEBUG_KEYSTORE_FILE=$RUNNER_TEMP/debug.keystore" >> "$GITHUB_ENV"
+          echo "DEBUG_KEYSTORE_PASSWORD=$DEBUG_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "DEBUG_KEY_ALIAS=$DEBUG_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "DEBUG_KEY_PASSWORD=$DEBUG_KEY_PASSWORD" >> "$GITHUB_ENV"
+          echo "DEBUG_KEYSTORE_TYPE=JKS" >> "$GITHUB_ENV"
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
+      - name: Build Debug APK (fixed keystore)
+        if: env.SIGNING_READY == 'true'
+        run: |
+          ./gradlew :${{ inputs.app_module }}:${{ inputs.gradle_task }} \
+            -Pandroid.injected.version.code="$VERSION_CODE" \
+            -Pandroid.injected.version.name="$VERSION_NAME" \
+            -Pandroid.injected.signing.store.file="$DEBUG_KEYSTORE_FILE" \
+            -Pandroid.injected.signing.store.type="$DEBUG_KEYSTORE_TYPE" \
+            -Pandroid.injected.signing.store.password="$DEBUG_KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$DEBUG_KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$DEBUG_KEY_PASSWORD" \
+            --stacktrace
+
+      - name: Build Debug APK (ephemeral keystore)
+        if: env.SIGNING_READY != 'true'
+        run: |
+          ./gradlew :${{ inputs.app_module }}:${{ inputs.gradle_task }} \
+            -Pandroid.injected.version.code="$VERSION_CODE" \
+            -Pandroid.injected.version.name="$VERSION_NAME" \
+            --stacktrace
+
+      - name: Upload APK artifact
+        if: env.SIGNING_READY == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ${{ inputs.apk_glob }}
+
+      - name: Upload APK artifact (fresh-install only)
+        if: env.SIGNING_READY != 'true' && env.ALLOW_EPHEMERAL_SIGNING == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name_ephemeral }}
+          path: ${{ inputs.apk_glob }}
