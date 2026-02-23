@@ -11,7 +11,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.ingrain.data.PROMPT_TYPE_CLOZE_RECALL
+import com.ingrain.data.PROMPT_TYPE_FIRST_WORD_CUE
+import com.ingrain.data.PROMPT_TYPE_FREE_RECALL
 import com.ingrain.scheduler.Scheduler
+import kotlin.math.max
 
 const val PASSAGE_HINT_STAGE_NONE = 0
 const val PASSAGE_HINT_STAGE_1 = 1
@@ -25,46 +29,91 @@ enum class PassageGrade(val label: String) {
     Hinted("Hinted"),
 }
 
+enum class PassagePromptType(val storageValue: String, val label: String) {
+    FreeRecall(PROMPT_TYPE_FREE_RECALL, "Free Recall"),
+    FirstWordCue(PROMPT_TYPE_FIRST_WORD_CUE, "First-word Cue"),
+    ClozeRecall(PROMPT_TYPE_CLOZE_RECALL, "Cloze Recall"),
+}
+
+data class ClozePromptConfig(
+    val revealPrefixChars: Int = 1,
+    val maskChar: Char = '_',
+)
+
+fun splitIntoSentencesOrLines(text: String): List<String> {
+    val trimmed = text.trim()
+    if (trimmed.isBlank()) return emptyList()
+
+    val lines = trimmed.lines().map { it.trim() }.filter { it.isNotBlank() }
+    if (lines.size > 1) return lines
+
+    return trimmed.split(Regex("(?<=[.!?])\\s+"))
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+}
+
+fun buildFirstWordCue(text: String): String {
+    val units = splitIntoSentencesOrLines(text)
+    if (units.isEmpty()) return ""
+    return units.joinToString("\n") { unit ->
+        unit.split(Regex("\\s+"))
+            .firstOrNull { it.isNotBlank() }
+            ?.let { "$it…" }
+            ?: "…"
+    }
+}
+
+fun buildKeywordCue(text: String): String {
+    val tokens = text.lowercase().split(Regex("[^a-z0-9]+"))
+        .filter { it.length >= 5 }
+    if (tokens.isEmpty()) return "No strong keywords yet. Try H3."
+
+    val ranked = tokens.groupingBy { it }.eachCount()
+        .toList()
+        .sortedWith(compareByDescending<Pair<String, Int>> { it.second }.thenByDescending { it.first.length }.thenBy { it.first })
+        .take(14)
+        .map { it.first }
+    return ranked.joinToString(separator = " • ")
+}
+
+fun buildClozePrompt(text: String, config: ClozePromptConfig = ClozePromptConfig()): String {
+    return text.split(Regex("(\\s+)"))
+        .joinToString(separator = "") { token ->
+            if (token.isBlank()) return@joinToString token
+            val lettersOnly = token.filter { it.isLetterOrDigit() }
+            if (lettersOnly.length < 4) return@joinToString token
+
+            val prefixLength = max(1, config.revealPrefixChars)
+            val visible = token.take(prefixLength)
+            val hiddenCount = (token.length - prefixLength).coerceAtLeast(1)
+            visible + config.maskChar.toString().repeat(hiddenCount.coerceAtMost(8))
+        }
+}
+
+fun buildPassagePrompt(back: String, promptType: PassagePromptType): String {
+    return when (promptType) {
+        PassagePromptType.FreeRecall -> "Recall the full passage from memory."
+        PassagePromptType.FirstWordCue -> buildFirstWordCue(back)
+        PassagePromptType.ClozeRecall -> buildClozePrompt(back)
+    }
+}
+
 fun buildPassageHint(back: String, hintStage: Int): String {
     return when (hintStage) {
-        PASSAGE_HINT_STAGE_1 -> firstWordsHint(back)
-        PASSAGE_HINT_STAGE_2 -> keywordsHint(back)
-        PASSAGE_HINT_STAGE_3 -> clozeHint(back)
+        PASSAGE_HINT_STAGE_1 -> buildFirstWordCue(back)
+        PASSAGE_HINT_STAGE_2 -> buildKeywordCue(back)
+        PASSAGE_HINT_STAGE_3 -> buildClozePrompt(back, ClozePromptConfig(revealPrefixChars = 2))
         else -> ""
     }
 }
 
-private fun firstWordsHint(text: String): String {
-    return text.lineSequence()
-        .map { line ->
-            val words = line.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
-            if (words.isEmpty()) "" else words.take(3).joinToString(" ") + "…"
-        }
-        .joinToString("\n")
-        .trim()
-}
 
-private fun keywordsHint(text: String): String {
-    val keywords = text
-        .lowercase()
-        .split(Regex("[^a-z0-9]+"))
-        .filter { it.length >= 6 }
-        .distinct()
-        .take(16)
-    return if (keywords.isEmpty()) "No strong keywords detected. Try the next hint stage."
-    else keywords.joinToString(separator = " • ")
-}
-
-private fun clozeHint(text: String): String {
-    return text.split(Regex("(\\s+)"))
-        .joinToString(separator = "") { token ->
-            if (token.isBlank()) {
-                token
-            } else {
-                val keep = token.length <= 4 || !token.any { it.isLetterOrDigit() }
-                if (keep) token else token.take(2) + "_".repeat((token.length - 2).coerceAtMost(6))
-            }
-        }
+fun allowedPassageGrades(hintUsed: Boolean): List<PassageGrade> {
+    return if (hintUsed) {
+        listOf(PassageGrade.Again, PassageGrade.Hinted)
+    } else {
+        listOf(PassageGrade.Again, PassageGrade.MinorErrors, PassageGrade.Exact)
+    }
 }
 
 @Composable
@@ -72,33 +121,25 @@ fun PassageGradeActions(
     hintUsed: Boolean,
     onGradeSelected: (PassageGrade) -> Unit,
 ) {
+    val availableGrades = allowedPassageGrades(hintUsed)
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Button(
-                onClick = { onGradeSelected(PassageGrade.Again) },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                ),
-            ) { Text(PassageGrade.Again.label) }
-            if (hintUsed) {
+            availableGrades.forEach { grade ->
                 Button(
-                    onClick = { onGradeSelected(PassageGrade.Hinted) },
+                    onClick = { onGradeSelected(grade) },
                     modifier = Modifier.weight(1f),
-                ) { Text(PassageGrade.Hinted.label) }
-            } else {
-                Button(
-                    onClick = { onGradeSelected(PassageGrade.MinorErrors) },
-                    modifier = Modifier.weight(1f),
-                ) { Text(PassageGrade.MinorErrors.label) }
-                Button(
-                    onClick = { onGradeSelected(PassageGrade.Exact) },
-                    modifier = Modifier.weight(1f),
-                ) { Text(PassageGrade.Exact.label) }
+                    colors = if (grade == PassageGrade.Again) {
+                        ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                        )
+                    } else {
+                        ButtonDefaults.buttonColors()
+                    },
+                ) { Text(grade.label) }
             }
         }
     }
