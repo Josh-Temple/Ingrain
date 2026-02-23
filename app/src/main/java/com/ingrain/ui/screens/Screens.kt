@@ -1311,13 +1311,6 @@ private fun TemplateSection(
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Button(shape = AppButtonShape, onClick = onCopyTemplate) { Text("Copy template") }
         Button(shape = AppButtonShape, onClick = onCopyAiPrompt) { Text("Copy AI prompt") }
-        Button(shape = AppButtonShape, onClick = {
-            val default = addTemplates.first()
-            val updatedTags = if (simpleMode) draft.tags else default.tags
-            onDraftChange(draft.copy(front = default.front, back = default.back, tags = updatedTags))
-        }) {
-            Text("Insert into form")
-        }
     }
 }
 
