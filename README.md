@@ -177,8 +177,7 @@ on:
 jobs:
   build:
     # Replace OWNER/REPO with this repository path.
-    # Use a commit SHA (recommended) or an existing branch name.
-    # NOTE: @v1 will fail unless a v1 tag actually exists in the source repo.
+    # Use a commit SHA (recommended) or an existing tag/branch name.
     uses: Josh-Temple/Ingrain/.github/workflows/reusable-android-debug-apk.yml@main
     with:
       app_module: app
@@ -193,16 +192,7 @@ jobs:
 
 > Important:
 > - Do not use placeholder values such as `your-org/Ingrain`.
-> - If you reference `@v1`, the workflow will not even start unless the `v1` tag exists in this repository.
+> - If you reference `@v1`, confirm that the `v1` tag exists in this repository first.
 > - For safest operation, pin to a commit SHA instead of a moving ref.
-
-### Troubleshooting: run fails at 0s and no jobs appear
-This usually means GitHub could not resolve the reusable workflow reference before any job started.
-
-Checklist:
-- Confirm `uses:` points to a real repository path (no placeholders).
-- Confirm the ref exists (`@main`, existing tag, or commit SHA).
-- If using `@v1`, create/push the `v1` tag first or switch to `@main`/SHA.
-- For private repositories, confirm Actions policy allows cross-repo reusable workflow calls.
 
 If your repository is private, ensure workflow access policy allows calling workflows from this repository (or copy the reusable workflow file into your own repository).
