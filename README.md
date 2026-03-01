@@ -176,7 +176,9 @@ on:
 
 jobs:
   build:
-    uses: <OWNER>/<REPO>/.github/workflows/reusable-android-debug-apk.yml@main
+    # Replace OWNER/REPO with this repository path.
+    # Use a commit SHA (recommended) or an existing tag/branch name.
+    uses: Josh-Temple/Ingrain/.github/workflows/reusable-android-debug-apk.yml@main
     with:
       app_module: app
       gradle_task: assembleDebug
@@ -187,5 +189,10 @@ jobs:
       DEBUG_KEY_ALIAS: ${{ secrets.DEBUG_KEY_ALIAS }}
       DEBUG_KEY_PASSWORD: ${{ secrets.DEBUG_KEY_PASSWORD }}
 ```
+
+> Important:
+> - Do not use placeholder values such as `your-org/Ingrain`.
+> - If you reference `@v1`, confirm that the `v1` tag exists in this repository first.
+> - For safest operation, pin to a commit SHA instead of a moving ref.
 
 If your repository is private, ensure workflow access policy allows calling workflows from this repository (or copy the reusable workflow file into your own repository).
