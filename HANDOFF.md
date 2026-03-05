@@ -153,3 +153,13 @@
 - Made `AddPreset` explicitly private to keep template model scoped to `Screens.kt`.
 - Extracted the `Law/Effect` multiline back template into a dedicated constant and applied `trimIndent()` to avoid accidental indentation drift.
 - Switched add-template construction to named arguments for clearer field mapping during future edits.
+
+## Session Update (Widget Health Check)
+- Re-validated the current widget scope against product docs: minimal read/reveal flow plus deep-link to in-app Study remains the intended behavior.
+- Attempted to run repository tests (including widget-related selection coverage), but the local Gradle run failed before test execution due to Java/Gradle incompatibility in this container (`Unsupported class file major version 69`).
+- No source-code widget logic changes were required in this pass; this update records validation status and environment constraints for the next session.
+
+### Suggested next implementation slice
+1. Re-run `./gradlew test --tests com.ingrain.IngrainRepositoryTest` in CI or a local Java 17 environment to confirm widget regression status.
+2. Add instrumentation coverage for widget reveal/open flows from launcher interactions (cold and warm app process).
+3. Add widget interaction analytics (`impression`, `reveal`, `open_app`) once event pipeline decisions are finalized.
