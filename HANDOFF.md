@@ -138,3 +138,18 @@
 2. Add analytics for widget reveal/open/refresh interactions.
 3. Consider widget configuration (specific deck binding).
 4. Add markdown truncation/normalization for long card fronts/backs in widget text view.
+
+## Session Update (Build Fix: Add Template String Literal)
+- Fixed Kotlin compilation errors in `Screens.kt` by converting the multiline `Law/Effect` add-template back text from an invalid quoted string into a valid Kotlin raw string literal (`"""..."""`).
+- This addresses the CI parse errors around `Screens.kt` lines near the add-template definition (`Expecting '"'`, `Expecting an element`, and follow-on syntax errors).
+- Local build re-check in this container is blocked by environment JDK/Gradle cache compatibility (`Unsupported class file major version 69`), so final assemble verification should run in CI with Java 17 toolchain.
+
+### Suggested next implementation slice
+1. Add a lightweight Kotlin compilation/unit check in CI before full assemble to catch syntax regressions earlier.
+2. Add a tiny test or lint guard around predefined template constants to prevent accidental invalid multiline string edits.
+
+## Session Update (Refactor: Add Template Definitions)
+- Refactored `Screens.kt` add-template definitions to improve maintainability.
+- Made `AddPreset` explicitly private to keep template model scoped to `Screens.kt`.
+- Extracted the `Law/Effect` multiline back template into a dedicated constant and applied `trimIndent()` to avoid accidental indentation drift.
+- Switched add-template construction to named arguments for clearer field mapping during future edits.
