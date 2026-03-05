@@ -99,21 +99,30 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.math.roundToInt
 
-data class AddPreset(val name: String, val front: String, val back: String, val tags: String)
+private data class AddPreset(
+    val name: String,
+    val front: String,
+    val back: String,
+    val tags: String,
+)
 
-private val addTemplates = listOf(
-    AddPreset("Basic", "Term or Question", "Definition or Answer", ""),
-    AddPreset("Example", "Word", "Meaning + Example Sentence", "vocab"),
-    AddPreset("Cloze", "Sentence with {{c1::key term}}", "Extra explanation", "cloze"),
-    AddPreset(
-        "Law/Effect",
-        "What is the [Law/Effect Name]?",
-        "One-liner:
+private const val LawEffectTemplateBack = """
+One-liner:
 Proposer/Year:
 Canonical example:
 Common misuse:
-Contrast points:",
-        "law,effect,concept",
+Contrast points:
+"""
+
+private val addTemplates = listOf(
+    AddPreset(name = "Basic", front = "Term or Question", back = "Definition or Answer", tags = ""),
+    AddPreset(name = "Example", front = "Word", back = "Meaning + Example Sentence", tags = "vocab"),
+    AddPreset(name = "Cloze", front = "Sentence with {{c1::key term}}", back = "Extra explanation", tags = "cloze"),
+    AddPreset(
+        name = "Law/Effect",
+        front = "What is the [Law/Effect Name]?",
+        back = LawEffectTemplateBack.trimIndent(),
+        tags = "law,effect,concept",
     ),
 )
 
