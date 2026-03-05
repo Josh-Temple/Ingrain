@@ -1,6 +1,9 @@
 package com.ingrain.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import kotlinx.coroutines.flow.StateFlow
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -28,8 +31,25 @@ object Routes {
 }
 
 @Composable
-fun IngrainApp(repo: IngrainRepository, settingsStore: SchedulerSettingsStore, uiStyleStore: UiStyleSettingsStore) {
+fun IngrainApp(
+    repo: IngrainRepository,
+    settingsStore: SchedulerSettingsStore,
+    uiStyleStore: UiStyleSettingsStore,
+    pendingOpenStudyDeckId: StateFlow<Long?>? = null,
+    onOpenStudyDeckHandled: () -> Unit = {},
+) {
     val nav = rememberNavController()
+    val deckIdToOpen = pendingOpenStudyDeckId?.collectAsState(initial = null)?.value
+
+    LaunchedEffect(deckIdToOpen) {
+        if (deckIdToOpen != null) {
+            nav.navigate("study/$deckIdToOpen") {
+                launchSingleTop = true
+            }
+            onOpenStudyDeckHandled()
+        }
+    }
+
     NavHost(navController = nav, startDestination = Routes.DECKS) {
         composable(Routes.DECKS) {
             DeckListScreen(

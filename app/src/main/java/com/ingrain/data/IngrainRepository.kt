@@ -210,6 +210,20 @@ class IngrainRepository(private val db: AppDatabase) {
         }
     }
 
+
+    suspend fun nextWidgetDueCard(now: Long, dayStart: Long, dayEnd: Long): Pair<DeckEntity, CardEntity>? {
+        val decks = db.deckDao().getAll()
+        var best: Pair<DeckEntity, CardEntity>? = null
+        for (deck in decks) {
+            val card = nextDueCard(deck = deck, now = now, dayStart = dayStart, dayEnd = dayEnd) ?: continue
+            val current = best
+            if (current == null || card.dueAt < current.second.dueAt) {
+                best = deck to card
+            }
+        }
+        return best
+    }
+
     suspend fun countDueUntil(deck: DeckEntity, dayStart: Long, dayEnd: Long, until: Long): Int {
         val reviewedToday = db.reviewLogDao().countReviewedInRange(deck.id, dayStart, dayEnd)
         val reviewCapacity = (deck.dailyReviewLimit - reviewedToday).coerceAtLeast(0)

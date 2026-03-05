@@ -101,6 +101,39 @@ class IngrainRepositoryTest {
         assertEquals(true, logged.revealUsed)
     }
     @Test
+    fun nextWidgetDueCard_returnsEarliestDueAcrossDecks() = runBlocking {
+        val now = 1_700_000_000_000L
+        repo.addCard(
+            deckName = "Beta",
+            front = "Later",
+            back = "A2",
+            tags = emptyList(),
+            now = now,
+        ).getOrThrow()
+        repo.addCard(
+            deckName = "Alpha",
+            front = "Sooner",
+            back = "A1",
+            tags = emptyList(),
+            now = now,
+        ).getOrThrow()
+
+        val betaDeck = repo.findDeckByName("Beta")!!
+        val alphaDeck = repo.findDeckByName("Alpha")!!
+        val betaCard = repo.nextDueCard(betaDeck, now, now - 1000, now + 1000)!!
+        val alphaCard = repo.nextDueCard(alphaDeck, now, now - 1000, now + 1000)!!
+
+        db.cardDao().update(betaCard.copy(dueAt = now + 5000))
+        db.cardDao().update(alphaCard.copy(dueAt = now + 1000))
+
+        val due = repo.nextWidgetDueCard(now = now + 6000, dayStart = now - 1000, dayEnd = now + 10_000)
+
+        assertNotNull(due)
+        assertEquals("Alpha", due?.first?.name)
+        assertEquals("Sooner", due?.second?.front)
+    }
+
+    @Test
     fun updateCardContent_updatesConceptMetadata() = runBlocking {
         val now = 1_700_000_000_000L
         repo.addCard(

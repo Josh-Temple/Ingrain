@@ -97,3 +97,44 @@
 - Expanded `Edit Card` UI so existing cards can update concept metadata fields (domain, one-liner, proposer/year, examples, misuse, contrast, evidence, sources, confusion cluster).
 - Added repository test coverage for updating concept metadata via `updateCardContent`.
 - Audited and synchronized AI prompt templates (`app` asset and `templates`) to remove drift and include optional concept metadata keys aligned with current parser support.
+
+
+## Session Update (Widget Strategy Clarification)
+- Agreed to keep widget delivery as a minimal read/reveal surface first, not a full grading surface.
+- Confirmed interaction model parity with Study: text-first prompt and tap-to-reveal answer.
+- Defined recommended v1 state flow: `QUESTION` -> `ANSWER` -> deep-link into app for grading/actions.
+- Confirmed fallback behavior for no-data/error widget states should be simple and actionable.
+
+### Suggested next implementation slice (widget)
+1. Define widget data contract (`cardId`, `deckName`, `front`, `back`) with optional concept metadata passthrough.
+2. Implement a small widget UI state machine for reveal behavior only.
+3. Add deep link routing into Study with card context handoff.
+4. Add minimal analytics events (`impression`, `reveal`, `open_app`).
+
+
+## Session Update (Widget MVP Implemented)
+- Implemented Android home-screen widget provider (`StudyWidgetProvider`) with minimal read/reveal flow.
+- Added widget actions: `Show answer` (toggle reveal), `Refresh`, and `Open` (launch app with Study deck context when available).
+- Added repository helper `nextWidgetDueCard` to fetch first eligible due card across decks using existing daily-limit logic.
+- Wired MainActivity startup extra to open Study route directly when launched from widget with deck id.
+- Added app widget resources (layout + provider XML) and manifest receiver registration.
+- Added repository test coverage for widget due-card selection helper.
+
+### Suggested next implementation slice
+1. Add optional widget configuration (specific deck vs any deck).
+2. Add widget analytics hooks for `impression`, `reveal`, and `open_app`.
+3. Add truncation/markdown-stripping policy for long card text in widget body.
+4. Add screenshot/update docs for launcher differences across Android versions.
+
+
+## Session Update (Widget Hardening Cycle 1-3)
+- Cycle 1: Fixed widget-to-Study routing when app receives new intents while already alive (`onNewIntent` + runtime nav event).
+- Cycle 2: Improved widget card selection to choose the earliest due candidate across eligible decks, rather than first deck order.
+- Cycle 3: Moved widget refresh/reveal/update workload off main thread using `goAsync` + IO coroutine execution.
+- Updated repository test to validate earliest-due selection behavior.
+
+### Suggested next implementation slice
+1. Add integration/UI tests for widget deep-link behavior from warm app state.
+2. Add analytics for widget reveal/open/refresh interactions.
+3. Consider widget configuration (specific deck binding).
+4. Add markdown truncation/normalization for long card fronts/backs in widget text view.

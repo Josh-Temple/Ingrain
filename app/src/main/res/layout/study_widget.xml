@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="#0D1F36">
+
+    <TextView
+        android:id="@+id/widget_deck_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="#EAF1FC"
+        android:textStyle="bold"
+        android:textSize="14sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="@string/widget_placeholder_deck" />
+
+    <TextView
+        android:id="@+id/widget_body"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="8dp"
+        android:textColor="#EAF1FC"
+        android:textSize="15sp"
+        android:maxLines="7"
+        android:ellipsize="end"
+        android:text="@string/widget_placeholder_body" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/widget_reveal_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/widget_show_answer" />
+
+        <Button
+            android:id="@+id/widget_refresh_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="@string/widget_refresh_symbol" />
+
+        <Button
+            android:id="@+id/widget_open_app_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="@string/widget_open" />
+    </LinearLayout>
+
+</LinearLayout>

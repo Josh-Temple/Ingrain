@@ -18,6 +18,9 @@ interface DeckDao {
     @Query("SELECT * FROM decks WHERE name=:name LIMIT 1")
     suspend fun getByName(name: String): DeckEntity?
 
+    @Query("SELECT * FROM decks ORDER BY name")
+    suspend fun getAll(): List<DeckEntity>
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(deck: DeckEntity): Long
 

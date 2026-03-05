@@ -1,5 +1,6 @@
 package com.ingrain
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -19,14 +20,24 @@ import com.ingrain.ui.UiStyleSettingsStore
 import com.ingrain.ui.applyUiStyle
 import com.ingrain.ui.appButtonShape
 import com.ingrain.ui.appTypography
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        const val EXTRA_OPEN_STUDY_DECK_ID = "open_study_deck_id"
+    }
+
+    private val openStudyDeckId = MutableStateFlow<Long?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val db = AppDatabase.get(applicationContext)
         val repo = IngrainRepository(db)
         val settingsStore = SchedulerSettingsStore(applicationContext)
         val uiStyleStore = UiStyleSettingsStore(applicationContext)
+
+        openStudyDeckId.value = extractStudyDeckId(intent)
 
         setContent {
             val uiStyle by uiStyleStore.settings.collectAsState(initial = com.ingrain.ui.UiStyleSettings())
@@ -53,8 +64,24 @@ class MainActivity : ComponentActivity() {
                 shapes = appShapes,
                 typography = appTypography(uiStyle),
             ) {
-                IngrainApp(repo = repo, settingsStore = settingsStore, uiStyleStore = uiStyleStore)
+                IngrainApp(
+                    repo = repo,
+                    settingsStore = settingsStore,
+                    uiStyleStore = uiStyleStore,
+                    pendingOpenStudyDeckId = openStudyDeckId.asStateFlow(),
+                    onOpenStudyDeckHandled = { openStudyDeckId.value = null },
+                )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        openStudyDeckId.value = extractStudyDeckId(intent)
+    }
+
+    private fun extractStudyDeckId(intent: Intent?): Long? {
+        return intent?.getLongExtra(EXTRA_OPEN_STUDY_DECK_ID, -1L)?.takeIf { it > 0 }
     }
 }
