@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [DeckEntity::class, CardEntity::class, ReviewLogEntity::class, StudyAttemptLogEntity::class],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -76,10 +76,27 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE cards ADD COLUMN concept_domain TEXT")
+                database.execSQL("ALTER TABLE cards ADD COLUMN concept_one_liner TEXT")
+                database.execSQL("ALTER TABLE cards ADD COLUMN concept_proposer TEXT")
+                database.execSQL("ALTER TABLE cards ADD COLUMN concept_year INTEGER")
+                database.execSQL("ALTER TABLE cards ADD COLUMN canonical_example TEXT")
+                database.execSQL("ALTER TABLE cards ADD COLUMN counter_example TEXT")
+                database.execSQL("ALTER TABLE cards ADD COLUMN common_misuse TEXT")
+                database.execSQL("ALTER TABLE cards ADD COLUMN contrast_points TEXT")
+                database.execSQL("ALTER TABLE cards ADD COLUMN evidence_level TEXT")
+                database.execSQL("ALTER TABLE cards ADD COLUMN sources TEXT")
+                database.execSQL("ALTER TABLE cards ADD COLUMN confusion_cluster TEXT")
+            }
+        }
+
         fun get(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(context, AppDatabase::class.java, "ingrain.db")
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build().also { INSTANCE = it }
             }
         }

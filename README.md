@@ -21,6 +21,57 @@ Ingrain is a personal Android flashcard app inspired by Anki, optimized for **fa
 
 ---
 
+## Design direction: Concept mastery mode (includes laws/effects)
+The following is a product-direction draft for specializing Ingrain toward **concept memorization** across domains. Academic laws/effects are a primary use case, but the same model should support broader content (terminology, principles, frameworks, and exam concepts).
+
+### Scope and compatibility policy
+- Keep existing `front/back` cards as the baseline format.
+- Add optional concept metadata so current decks remain valid.
+- Treat laws/effects as one subtype of a general concept model.
+
+### Card schema extension (content quality + anti-confusion)
+In addition to existing front/back fields, each concept card should support:
+- `domain` (psychology/economics/law/medicine/etc.)
+- `one_liner_definition` (short recall phrase)
+- `proposer` / `year` (optional when applicable)
+- `canonical_example` and `counter_example`
+- `common_misuse` (frequent misunderstanding)
+- `contrast_points` (difference from similar concepts)
+- `evidence_level` and `sources`
+- `confusion_cluster` (concepts frequently mixed up)
+
+### Quiz modes (text-first interaction)
+- Name → definition
+- Definition → name
+- Scenario → concept
+- Error-finding (identify incorrect statement)
+- A/B contrast (differentiate similar concepts)
+
+UI policy for all quiz modes (including 4-choice style prompts):
+- No dedicated answer buttons are required.
+- Show question text first, then reveal answer/explanation by tap.
+- Keep interaction consistent with the current tap-to-reveal study behavior.
+
+### Scheduling policy
+Keep SRS as the core, but weight scheduling with:
+- forgetting risk
+- confusion-cluster error history
+- response latency (slow-but-correct should still be reviewed sooner)
+
+### Widget feasibility (design note)
+Widget-based study is feasible if interaction stays lightweight:
+- Question text on widget
+- Tap to reveal answer text
+- Open app for deeper actions/editing
+
+### MVP sequence for this specialization
+1. Add concept metadata fields + source validation (backward-compatible)
+2. Implement text-first multi-direction quiz flow (tap to reveal)
+3. Add confusion-cluster comparison review
+4. Add dashboard metrics (retention, confusion error rate)
+
+---
+
 ## Current features
 
 ### Decks
@@ -196,3 +247,12 @@ jobs:
 > - For safest operation, pin to a commit SHA instead of a moving ref.
 
 If your repository is private, ensure workflow access policy allows calling workflows from this repository (or copy the reusable workflow file into your own repository).
+
+
+## Implementation status (current session)
+- Began implementation for concept/law-effect specialization in runtime code.
+- Import format now accepts concept metadata keys in both Markdown front matter and JSON Lines (`concept_domain`, `concept_one_liner`, `concept_proposer`, `concept_year`, `canonical_example`, `counter_example`, `common_misuse`, `contrast_points`, `evidence_level`, `sources`, `confusion_cluster`).
+- Card storage schema now includes concept metadata columns, and import/export paths persist these fields.
+- Add Card templates now include a `Law/Effect` preset for faster authoring.
+- Existing cards can now be edited with concept metadata fields from Edit Card.
+- Widget work is intentionally deferred for now (as requested).

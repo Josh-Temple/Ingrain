@@ -14,6 +14,17 @@ private data class FrontMatter(
     val cloze1: String?,
     val cloze2: String?,
     val cloze3: String?,
+    val conceptDomain: String?,
+    val conceptOneLiner: String?,
+    val conceptProposer: String?,
+    val conceptYear: Int?,
+    val canonicalExample: String?,
+    val counterExample: String?,
+    val commonMisuse: String?,
+    val contrastPoints: String?,
+    val evidenceLevel: String?,
+    val sources: String?,
+    val confusionCluster: String?,
 )
 
 object MarkdownCardsParser {
@@ -101,6 +112,17 @@ object MarkdownCardsParser {
                 cloze1 = metadata.cloze1,
                 cloze2 = metadata.cloze2,
                 cloze3 = metadata.cloze3,
+                concept_domain = metadata.conceptDomain,
+                concept_one_liner = metadata.conceptOneLiner,
+                concept_proposer = metadata.conceptProposer,
+                concept_year = metadata.conceptYear,
+                canonical_example = metadata.canonicalExample,
+                counter_example = metadata.counterExample,
+                common_misuse = metadata.commonMisuse,
+                contrast_points = metadata.contrastPoints,
+                evidence_level = metadata.evidenceLevel,
+                sources = metadata.sources,
+                confusion_cluster = metadata.confusionCluster,
             ),
         )
     }
@@ -116,6 +138,17 @@ object MarkdownCardsParser {
         var cloze1: String? = null
         var cloze2: String? = null
         var cloze3: String? = null
+        var conceptDomain: String? = null
+        var conceptOneLiner: String? = null
+        var conceptProposer: String? = null
+        var conceptYear: Int? = null
+        var canonicalExample: String? = null
+        var counterExample: String? = null
+        var commonMisuse: String? = null
+        var contrastPoints: String? = null
+        var evidenceLevel: String? = null
+        var sources: String? = null
+        var confusionCluster: String? = null
 
         lines.forEach { raw ->
             val line = raw.trim()
@@ -189,6 +222,51 @@ object MarkdownCardsParser {
                     cloze3 = line.removePrefix("cloze3:").trim().trim('"', '\'').ifBlank { null }
                 }
 
+                line.startsWith("concept_domain:") -> {
+                    conceptDomain = line.removePrefix("concept_domain:").trim().trim('"', '\'').ifBlank { null }
+                }
+
+                line.startsWith("concept_one_liner:") -> {
+                    conceptOneLiner = line.removePrefix("concept_one_liner:").trim().trim('"', '\'').ifBlank { null }
+                }
+
+                line.startsWith("concept_proposer:") -> {
+                    conceptProposer = line.removePrefix("concept_proposer:").trim().trim('"', '\'').ifBlank { null }
+                }
+
+                line.startsWith("concept_year:") -> {
+                    val parsed = line.removePrefix("concept_year:").trim().trim('"', '\'')
+                    conceptYear = if (parsed.isBlank()) null else parsed.toIntOrNull() ?: return null
+                }
+
+                line.startsWith("canonical_example:") -> {
+                    canonicalExample = line.removePrefix("canonical_example:").trim().trim('"', '\'').ifBlank { null }
+                }
+
+                line.startsWith("counter_example:") -> {
+                    counterExample = line.removePrefix("counter_example:").trim().trim('"', '\'').ifBlank { null }
+                }
+
+                line.startsWith("common_misuse:") -> {
+                    commonMisuse = line.removePrefix("common_misuse:").trim().trim('"', '\'').ifBlank { null }
+                }
+
+                line.startsWith("contrast_points:") -> {
+                    contrastPoints = line.removePrefix("contrast_points:").trim().trim('"', '\'').ifBlank { null }
+                }
+
+                line.startsWith("evidence_level:") -> {
+                    evidenceLevel = line.removePrefix("evidence_level:").trim().trim('"', '\'').ifBlank { null }
+                }
+
+                line.startsWith("sources:") -> {
+                    sources = line.removePrefix("sources:").trim().trim('"', '\'').ifBlank { null }
+                }
+
+                line.startsWith("confusion_cluster:") -> {
+                    confusionCluster = line.removePrefix("confusion_cluster:").trim().trim('"', '\'').ifBlank { null }
+                }
+
                 else -> {
                     if (!line.contains(':')) return null
                 }
@@ -206,6 +284,17 @@ object MarkdownCardsParser {
             cloze1 = cloze1,
             cloze2 = cloze2,
             cloze3 = cloze3,
+            conceptDomain = conceptDomain,
+            conceptOneLiner = conceptOneLiner,
+            conceptProposer = conceptProposer,
+            conceptYear = conceptYear,
+            canonicalExample = canonicalExample,
+            counterExample = counterExample,
+            commonMisuse = commonMisuse,
+            contrastPoints = contrastPoints,
+            evidenceLevel = evidenceLevel,
+            sources = sources,
+            confusionCluster = confusionCluster,
         )
     }
 
