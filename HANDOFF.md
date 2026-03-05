@@ -49,3 +49,51 @@
 - **Import failure observability**: `importParsed` aggregates exceptions with `failed++`, making root-cause analysis and UI detail weak.
 - **Template drift risk**: keep `templates/ai_card_writer_prompt.md` and `app/src/main/assets/ai_card_writer_prompt.md` synchronized when updating prompt text.
 - **Build reproducibility**: Current environment may hit `Unsupported class file major version 69`, causing unstable local verification.
+
+## Session Update (Academic Laws/Effects Specialization Draft)
+- Added a design-direction section to README for specializing Ingrain into an academic laws/effects memorization app.
+- Proposed schema additions: domain, proposer/year, canonical/counter examples, misuse notes, contrast points, evidence level, sources, and confusion clusters.
+- Proposed quiz expansion: name→definition, definition→name, scenario→concept, error-finding, and concept comparison.
+- Proposed SRS prioritization update: include confusion history and response latency, not only binary correctness.
+- Proposed MVP sequence focuses on metadata + validation first, then multidirectional quiz, then confusion review and dashboard metrics.
+
+### Suggested next implementation slice
+1. Define storage model changes for concept metadata and source fields.
+2. Introduce validation rules to prevent source-less academic cards.
+3. Add first multidirectional quiz mode pair (definition↔name) before scenario mode.
+4. Add analytics events for confusion-cluster misses and answer latency.
+
+
+## Session Update (Direction Refinement)
+- Refined the design direction from a strict "laws/effects" focus to a broader **concept mastery** model so the same architecture can cover non-law content as well.
+- Documented a compatibility rule: keep existing front/back cards as baseline and add metadata as optional extensions.
+- Clarified quiz UX policy: even for 4-choice style content, use text-first display with tap-to-reveal answer/explanation; no dedicated option buttons required.
+- Added widget feasibility guidance: widget can support lightweight question text and tap-to-reveal answer, while advanced flows stay in-app.
+
+### Suggested next implementation slice (updated)
+1. Add optional concept metadata columns/fields without breaking current imports.
+2. Implement text-first question/reveal templates for name/definition/scenario patterns.
+3. Add confusion-cluster logging and review queue hooks.
+4. Prototype a minimal widget read/reveal path that deep-links into Study for grading actions.
+
+
+## Session Update (Implementation Started: Law/Effect Specialization)
+- Implemented DB-level concept metadata support on cards (domain, one-liner, proposer/year, examples, misuse, contrast points, evidence, sources, confusion cluster).
+- Added DB migration to preserve existing installs while introducing new optional concept columns.
+- Extended Markdown and JSON Lines import models to parse/store concept metadata fields.
+- Extended export paths (Markdown/JSON Lines) to include concept metadata when present.
+- Added a `Law/Effect` Add template to speed up authoring in the current UI.
+- Widget implementation is deferred intentionally per latest product direction.
+
+### Follow-up implementation suggestions
+1. Add dedicated UI fields for concept metadata in detailed add/edit screens (currently mostly import-driven).
+2. Add study-side rendering that highlights one-liner, misuse, and contrast points separately.
+3. Add validation policy for source/evidence requirements when concept metadata is present.
+4. Add migration/unit tests for round-trip import/export of concept metadata.
+
+
+## Session Update (Refactor + Editing + Prompt Audit)
+- Refactored card update flow to introduce `ConceptMetadataInput` in repository and centralized concept metadata normalization.
+- Expanded `Edit Card` UI so existing cards can update concept metadata fields (domain, one-liner, proposer/year, examples, misuse, contrast, evidence, sources, confusion cluster).
+- Added repository test coverage for updating concept metadata via `updateCardContent`.
+- Audited and synchronized AI prompt templates (`app` asset and `templates`) to remove drift and include optional concept metadata keys aligned with current parser support.

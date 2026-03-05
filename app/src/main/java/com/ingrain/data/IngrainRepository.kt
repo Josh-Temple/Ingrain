@@ -21,6 +21,21 @@ data class StudyAttempt(
     val errorTypes: String? = null,
 )
 
+
+data class ConceptMetadataInput(
+    val conceptDomain: String? = null,
+    val conceptOneLiner: String? = null,
+    val conceptProposer: String? = null,
+    val conceptYear: Int? = null,
+    val canonicalExample: String? = null,
+    val counterExample: String? = null,
+    val commonMisuse: String? = null,
+    val contrastPoints: String? = null,
+    val evidenceLevel: String? = null,
+    val sources: String? = null,
+    val confusionCluster: String? = null,
+)
+
 class IngrainRepository(private val db: AppDatabase) {
     private val json = Json
 
@@ -51,6 +66,22 @@ class IngrainRepository(private val db: AppDatabase) {
         return raw?.trim()?.takeIf { it.isNotBlank() }
     }
 
+
+    private fun normalizeConceptMetadata(input: ConceptMetadataInput): ConceptMetadataInput {
+        return input.copy(
+            conceptDomain = normalizeOptionalText(input.conceptDomain),
+            conceptOneLiner = normalizeOptionalText(input.conceptOneLiner),
+            conceptProposer = normalizeOptionalText(input.conceptProposer),
+            canonicalExample = normalizeOptionalText(input.canonicalExample),
+            counterExample = normalizeOptionalText(input.counterExample),
+            commonMisuse = normalizeOptionalText(input.commonMisuse),
+            contrastPoints = normalizeOptionalText(input.contrastPoints),
+            evidenceLevel = normalizeOptionalText(input.evidenceLevel),
+            sources = normalizeOptionalText(input.sources),
+            confusionCluster = normalizeOptionalText(input.confusionCluster),
+        )
+    }
+
     fun observeDecks(): Flow<List<DeckEntity>> = db.deckDao().observeAll()
 
     suspend fun createDeck(name: String): Result<Unit> = runCatching {
@@ -74,17 +105,35 @@ class IngrainRepository(private val db: AppDatabase) {
 
     suspend fun getCard(id: Long): CardEntity? = db.cardDao().getById(id)
 
-    suspend fun updateCardContent(card: CardEntity, front: String, back: String, tags: List<String>): Result<Unit> = runCatching {
+    suspend fun updateCardContent(
+        card: CardEntity,
+        front: String,
+        back: String,
+        tags: List<String>,
+        conceptMetadata: ConceptMetadataInput = ConceptMetadataInput(),
+    ): Result<Unit> = runCatching {
         val trimmedFront = front.trim()
         val trimmedBack = back.trim()
         require(trimmedFront.isNotBlank()) { "Front is required" }
         require(trimmedBack.isNotBlank()) { "Back is required" }
         val normalizedTags = tags.map { it.trim() }.filter { it.isNotBlank() }
+        val normalizedConcept = normalizeConceptMetadata(conceptMetadata)
         db.cardDao().update(
             card.copy(
                 front = trimmedFront,
                 back = trimmedBack,
                 tagsJson = json.encodeToString(normalizedTags),
+                conceptDomain = normalizedConcept.conceptDomain,
+                conceptOneLiner = normalizedConcept.conceptOneLiner,
+                conceptProposer = normalizedConcept.conceptProposer,
+                conceptYear = normalizedConcept.conceptYear,
+                canonicalExample = normalizedConcept.canonicalExample,
+                counterExample = normalizedConcept.counterExample,
+                commonMisuse = normalizedConcept.commonMisuse,
+                contrastPoints = normalizedConcept.contrastPoints,
+                evidenceLevel = normalizedConcept.evidenceLevel,
+                sources = normalizedConcept.sources,
+                confusionCluster = normalizedConcept.confusionCluster,
                 updatedAt = System.currentTimeMillis(),
             ),
         )
@@ -276,6 +325,17 @@ class IngrainRepository(private val db: AppDatabase) {
                                 cloze1 = normalizeOptionalText(c.cloze1),
                                 cloze2 = normalizeOptionalText(c.cloze2),
                                 cloze3 = normalizeOptionalText(c.cloze3),
+                                conceptDomain = normalizeOptionalText(c.concept_domain),
+                                conceptOneLiner = normalizeOptionalText(c.concept_one_liner),
+                                conceptProposer = normalizeOptionalText(c.concept_proposer),
+                                conceptYear = c.concept_year,
+                                canonicalExample = normalizeOptionalText(c.canonical_example),
+                                counterExample = normalizeOptionalText(c.counter_example),
+                                commonMisuse = normalizeOptionalText(c.common_misuse),
+                                contrastPoints = normalizeOptionalText(c.contrast_points),
+                                evidenceLevel = normalizeOptionalText(c.evidence_level),
+                                sources = normalizeOptionalText(c.sources),
+                                confusionCluster = normalizeOptionalText(c.confusion_cluster),
                                 tagsJson = tagsJson,
                                 createdAt = now,
                                 updatedAt = now,
@@ -322,6 +382,17 @@ class IngrainRepository(private val db: AppDatabase) {
                 card.cloze1?.takeIf { it.isNotBlank() }?.let { appendLine("cloze1: \"$it\"") }
                 card.cloze2?.takeIf { it.isNotBlank() }?.let { appendLine("cloze2: \"$it\"") }
                 card.cloze3?.takeIf { it.isNotBlank() }?.let { appendLine("cloze3: \"$it\"") }
+                card.conceptDomain?.let { appendLine("concept_domain: \"$it\"") }
+                card.conceptOneLiner?.let { appendLine("concept_one_liner: \"$it\"") }
+                card.conceptProposer?.let { appendLine("concept_proposer: \"$it\"") }
+                card.conceptYear?.let { appendLine("concept_year: $it") }
+                card.canonicalExample?.let { appendLine("canonical_example: \"$it\"") }
+                card.counterExample?.let { appendLine("counter_example: \"$it\"") }
+                card.commonMisuse?.let { appendLine("common_misuse: \"$it\"") }
+                card.contrastPoints?.let { appendLine("contrast_points: \"$it\"") }
+                card.evidenceLevel?.let { appendLine("evidence_level: \"$it\"") }
+                card.sources?.let { appendLine("sources: \"$it\"") }
+                card.confusionCluster?.let { appendLine("confusion_cluster: \"$it\"") }
                 appendLine("---")
                 appendLine()
                 appendLine("## Front")
@@ -348,6 +419,17 @@ class IngrainRepository(private val db: AppDatabase) {
                     "cloze1" to card.cloze1,
                     "cloze2" to card.cloze2,
                     "cloze3" to card.cloze3,
+                    "concept_domain" to card.conceptDomain,
+                    "concept_one_liner" to card.conceptOneLiner,
+                    "concept_proposer" to card.conceptProposer,
+                    "concept_year" to card.conceptYear,
+                    "canonical_example" to card.canonicalExample,
+                    "counter_example" to card.counterExample,
+                    "common_misuse" to card.commonMisuse,
+                    "contrast_points" to card.contrastPoints,
+                    "evidence_level" to card.evidenceLevel,
+                    "sources" to card.sources,
+                    "confusion_cluster" to card.confusionCluster,
                     "due_at" to card.dueAt,
                     "interval_days" to card.intervalDays,
                     "ease_factor" to card.easeFactor,

@@ -196,4 +196,36 @@ class MarkdownCardsParserTest {
         val result = MarkdownCardsParser.parse(input).single() as ParseResult.Success
         assertEquals(null, result.card.cloze1)
     }
+    @Test
+    fun parse_markdownCards_supports_conceptMetadata() {
+        val input = """
+            ---
+            deck: Psychology
+            tags: [laws, exam]
+            concept_domain: psychology
+            concept_one_liner: "unfinished tasks stay active in memory"
+            concept_proposer: "Bluma Zeigarnik"
+            concept_year: 1927
+            canonical_example: "You remember interrupted work better than completed work."
+            common_misuse: "Not equivalent to all memory biases"
+            contrast_points: "Differs from mere exposure effect"
+            evidence_level: "textbook"
+            sources: "Intro Psych 10e, ch.7"
+            confusion_cluster: "cognitive-bias-memory"
+            ---
+
+            ## Front
+            What is the Zeigarnik effect?
+
+            ## Back
+            People remember interrupted or incomplete tasks better than completed tasks.
+        """.trimIndent()
+
+        val result = MarkdownCardsParser.parse(input).single() as ParseResult.Success
+        assertEquals("psychology", result.card.concept_domain)
+        assertEquals(1927, result.card.concept_year)
+        assertEquals("Bluma Zeigarnik", result.card.concept_proposer)
+        assertEquals("cognitive-bias-memory", result.card.confusion_cluster)
+    }
+
 }

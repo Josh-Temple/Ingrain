@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.ingrain.data.AppDatabase
+import com.ingrain.data.ConceptMetadataInput
 import com.ingrain.data.IngrainRepository
 import com.ingrain.data.PROMPT_TYPE_CLOZE_RECALL
 import com.ingrain.data.PROMPT_TYPE_FREE_RECALL
@@ -99,5 +100,42 @@ class IngrainRepositoryTest {
         assertEquals(2, logged.hintLevelUsed)
         assertEquals(true, logged.revealUsed)
     }
+    @Test
+    fun updateCardContent_updatesConceptMetadata() = runBlocking {
+        val now = 1_700_000_000_000L
+        repo.addCard(
+            deckName = "Psych",
+            front = "What is Zeigarnik effect?",
+            back = "Remembering incomplete tasks",
+            tags = listOf("memory"),
+            now = now,
+        ).getOrThrow()
+
+        val deck = repo.findDeckByName("Psych")!!
+        val card = repo.nextDueCard(deck, now, now - 1, now + 1)!!
+
+        repo.updateCardContent(
+            card = card,
+            front = card.front,
+            back = card.back,
+            tags = listOf("memory", "bias"),
+            conceptMetadata = ConceptMetadataInput(
+                conceptDomain = "psychology",
+                conceptOneLiner = "incomplete tasks are remembered better",
+                conceptProposer = "Bluma Zeigarnik",
+                conceptYear = 1927,
+                commonMisuse = "Not equal to all recall biases",
+                evidenceLevel = "textbook",
+            ),
+        ).getOrThrow()
+
+        val updated = repo.getCard(card.id)!!
+        assertEquals("psychology", updated.conceptDomain)
+        assertEquals("Bluma Zeigarnik", updated.conceptProposer)
+        assertEquals(1927, updated.conceptYear)
+        assertEquals("textbook", updated.evidenceLevel)
+        assertEquals("Not equal to all recall biases", updated.commonMisuse)
+    }
+
 }
 

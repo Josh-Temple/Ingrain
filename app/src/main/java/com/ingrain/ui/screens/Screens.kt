@@ -75,6 +75,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ingrain.data.CardEntity
+import com.ingrain.data.ConceptMetadataInput
 import com.ingrain.data.DeckEntity
 import com.ingrain.data.HINT_POLICY_DISABLED
 import com.ingrain.data.IngrainRepository
@@ -104,6 +105,16 @@ private val addTemplates = listOf(
     AddPreset("Basic", "Term or Question", "Definition or Answer", ""),
     AddPreset("Example", "Word", "Meaning + Example Sentence", "vocab"),
     AddPreset("Cloze", "Sentence with {{c1::key term}}", "Extra explanation", "cloze"),
+    AddPreset(
+        "Law/Effect",
+        "What is the [Law/Effect Name]?",
+        "One-liner:
+Proposer/Year:
+Canonical example:
+Common misuse:
+Contrast points:",
+        "law,effect,concept",
+    ),
 )
 
 
@@ -1380,7 +1391,7 @@ private fun BulkImportSection(
     onPreview: () -> Unit,
     onImport: () -> Unit,
 ) {
-    Text("Bulk add with Markdown/YAML or JSON Lines")
+    Text("Bulk add with Markdown/YAML or JSON Lines (concept metadata supported)")
     AppTextField(
         value = bulkText,
         onValueChange = onBulkTextChange,
@@ -1805,6 +1816,17 @@ fun EditCardScreen(cardId: Long, repo: IngrainRepository, onClose: () -> Unit) {
     var front by remember { mutableStateOf("") }
     var back by remember { mutableStateOf("") }
     var tags by remember { mutableStateOf("") }
+    var conceptDomain by remember { mutableStateOf("") }
+    var conceptOneLiner by remember { mutableStateOf("") }
+    var conceptProposer by remember { mutableStateOf("") }
+    var conceptYear by remember { mutableStateOf("") }
+    var canonicalExample by remember { mutableStateOf("") }
+    var counterExample by remember { mutableStateOf("") }
+    var commonMisuse by remember { mutableStateOf("") }
+    var contrastPoints by remember { mutableStateOf("") }
+    var evidenceLevel by remember { mutableStateOf("") }
+    var sources by remember { mutableStateOf("") }
+    var confusionCluster by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
 
     LaunchedEffect(cardId) {
@@ -1816,6 +1838,17 @@ fun EditCardScreen(cardId: Long, repo: IngrainRepository, onClose: () -> Unit) {
             tags = runCatching { screenJson.decodeFromString<List<String>>(loaded.tagsJson) }
                 .getOrDefault(emptyList())
                 .joinToString(",")
+            conceptDomain = loaded.conceptDomain.orEmpty()
+            conceptOneLiner = loaded.conceptOneLiner.orEmpty()
+            conceptProposer = loaded.conceptProposer.orEmpty()
+            conceptYear = loaded.conceptYear?.toString().orEmpty()
+            canonicalExample = loaded.canonicalExample.orEmpty()
+            counterExample = loaded.counterExample.orEmpty()
+            commonMisuse = loaded.commonMisuse.orEmpty()
+            contrastPoints = loaded.contrastPoints.orEmpty()
+            evidenceLevel = loaded.evidenceLevel.orEmpty()
+            sources = loaded.sources.orEmpty()
+            confusionCluster = loaded.confusionCluster.orEmpty()
         } else {
             message = "Card not found"
         }
@@ -1826,19 +1859,56 @@ fun EditCardScreen(cardId: Long, repo: IngrainRepository, onClose: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(p)
-                .padding(16.dp),
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             AppTextField(value = front, onValueChange = { front = it }, label = { Text("Front") }, modifier = Modifier.fillMaxWidth())
             AppTextField(value = back, onValueChange = { back = it }, label = { Text("Back") }, modifier = Modifier.fillMaxWidth())
             AppTextField(value = tags, onValueChange = { tags = it }, label = { Text("Tags (comma separated)") }, modifier = Modifier.fillMaxWidth())
 
+            SectionHeading("CONCEPT METADATA")
+            AppTextField(value = conceptDomain, onValueChange = { conceptDomain = it }, label = { Text("Domain") }, modifier = Modifier.fillMaxWidth())
+            AppTextField(value = conceptOneLiner, onValueChange = { conceptOneLiner = it }, label = { Text("One-liner") }, modifier = Modifier.fillMaxWidth())
+            AppTextField(value = conceptProposer, onValueChange = { conceptProposer = it }, label = { Text("Proposer") }, modifier = Modifier.fillMaxWidth())
+            AppTextField(value = conceptYear, onValueChange = { conceptYear = it }, label = { Text("Year") }, modifier = Modifier.fillMaxWidth())
+            AppTextField(value = canonicalExample, onValueChange = { canonicalExample = it }, label = { Text("Canonical example") }, modifier = Modifier.fillMaxWidth())
+            AppTextField(value = counterExample, onValueChange = { counterExample = it }, label = { Text("Counter example") }, modifier = Modifier.fillMaxWidth())
+            AppTextField(value = commonMisuse, onValueChange = { commonMisuse = it }, label = { Text("Common misuse") }, modifier = Modifier.fillMaxWidth())
+            AppTextField(value = contrastPoints, onValueChange = { contrastPoints = it }, label = { Text("Contrast points") }, modifier = Modifier.fillMaxWidth())
+            AppTextField(value = evidenceLevel, onValueChange = { evidenceLevel = it }, label = { Text("Evidence level") }, modifier = Modifier.fillMaxWidth())
+            AppTextField(value = sources, onValueChange = { sources = it }, label = { Text("Sources") }, modifier = Modifier.fillMaxWidth())
+            AppTextField(value = confusionCluster, onValueChange = { confusionCluster = it }, label = { Text("Confusion cluster") }, modifier = Modifier.fillMaxWidth())
+
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(shape = AppButtonShape, onClick = onClose) { Text("Cancel") }
                 Button(shape = AppButtonShape, onClick = {
                     val target = card ?: return@Button
+                    val parsedYear = conceptYear.trim().takeIf { it.isNotBlank() }?.toIntOrNull()
+                    if (conceptYear.trim().isNotBlank() && parsedYear == null) {
+                        message = "Year must be a number"
+                        return@Button
+                    }
                     scope.launch {
-                        repo.updateCardContent(target, front, back, parseTags(tags))
+                        repo.updateCardContent(
+                            card = target,
+                            front = front,
+                            back = back,
+                            tags = parseTags(tags),
+                            conceptMetadata = ConceptMetadataInput(
+                                conceptDomain = conceptDomain,
+                                conceptOneLiner = conceptOneLiner,
+                                conceptProposer = conceptProposer,
+                                conceptYear = parsedYear,
+                                canonicalExample = canonicalExample,
+                                counterExample = counterExample,
+                                commonMisuse = commonMisuse,
+                                contrastPoints = contrastPoints,
+                                evidenceLevel = evidenceLevel,
+                                sources = sources,
+                                confusionCluster = confusionCluster,
+                            ),
+                        )
                             .onSuccess {
                                 onClose()
                             }
