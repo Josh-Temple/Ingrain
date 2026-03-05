@@ -1,0 +1,11 @@
+<resources>
+    <string name="widget_no_due_title">No due cards</string>
+    <string name="widget_no_due_body">Open app to study or add cards.</string>
+    <string name="widget_refresh">Refresh</string>
+    <string name="widget_show_answer">Show answer</string>
+    <string name="widget_show_question">Show question</string>
+    <string name="widget_placeholder_deck">Deck</string>
+    <string name="widget_placeholder_body">Card content</string>
+    <string name="widget_open">Open</string>
+    <string name="widget_refresh_symbol">↻</string>
+</resources>

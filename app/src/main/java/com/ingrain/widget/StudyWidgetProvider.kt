@@ -1,0 +1,184 @@
+package com.ingrain.widget
+
+import android.app.PendingIntent
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProvider
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.widget.RemoteViews
+import com.ingrain.MainActivity
+import com.ingrain.R
+import com.ingrain.data.AppDatabase
+import com.ingrain.data.CardEntity
+import com.ingrain.data.DeckEntity
+import com.ingrain.data.IngrainRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+class StudyWidgetProvider : AppWidgetProvider() {
+    override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+        super.onUpdate(context, appWidgetManager, appWidgetIds)
+        val pendingResult = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            appWidgetIds.forEach { updateSingleWidget(context, appWidgetManager, it, forceQuestionState = true) }
+            pendingResult.finish()
+        }
+    }
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        super.onDeleted(context, appWidgetIds)
+        val prefs = context.getSharedPreferences("study_widget_state", Context.MODE_PRIVATE).edit()
+        appWidgetIds.forEach { prefs.remove("revealed_$it") }
+        prefs.apply()
+    }
+
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        val manager = AppWidgetManager.getInstance(context)
+        when (intent.action) {
+            ACTION_REVEAL -> {
+                val widgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+                if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                    val pendingResult = goAsync()
+                    CoroutineScope(Dispatchers.IO).launch {
+                        val current = isAnswerRevealed(context, widgetId)
+                        setAnswerRevealed(context, widgetId, !current)
+                        updateSingleWidget(context, manager, widgetId, forceQuestionState = false)
+                        pendingResult.finish()
+                    }
+                }
+            }
+            ACTION_REFRESH -> {
+                val pendingResult = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    val ids = manager.getAppWidgetIds(ComponentName(context, StudyWidgetProvider::class.java))
+                    ids.forEach { updateSingleWidget(context, manager, it, forceQuestionState = true) }
+                    pendingResult.finish()
+                }
+            }
+        }
+    }
+
+    companion object {
+        private const val ACTION_REVEAL = "com.ingrain.widget.ACTION_REVEAL"
+        private const val ACTION_REFRESH = "com.ingrain.widget.ACTION_REFRESH"
+
+        private suspend fun updateSingleWidget(
+            context: Context,
+            manager: AppWidgetManager,
+            widgetId: Int,
+            forceQuestionState: Boolean,
+        ) {
+            val views = RemoteViews(context.packageName, R.layout.study_widget)
+            val db = AppDatabase.get(context)
+            val repo = IngrainRepository(db)
+            val now = System.currentTimeMillis()
+            val dayStart = startOfDayMillis(now)
+            val dayEnd = endOfDayMillis(now)
+
+            if (forceQuestionState) {
+                setAnswerRevealed(context, widgetId, false)
+            }
+            val revealAnswer = isAnswerRevealed(context, widgetId)
+
+            val due = withContext(Dispatchers.IO) {
+                repo.nextWidgetDueCard(now = now, dayStart = dayStart, dayEnd = dayEnd)
+            }
+            bindContent(context, views, due?.first, due?.second, revealAnswer = revealAnswer)
+
+            val revealIntent = Intent(context, StudyWidgetProvider::class.java).apply {
+                action = ACTION_REVEAL
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+            }
+            val revealPendingIntent = PendingIntent.getBroadcast(
+                context,
+                widgetId,
+                revealIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            views.setOnClickPendingIntent(R.id.widget_reveal_button, revealPendingIntent)
+
+            val openAppIntent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                due?.first?.let { putExtra(MainActivity.EXTRA_OPEN_STUDY_DECK_ID, it.id) }
+            }
+            val openPendingIntent = PendingIntent.getActivity(
+                context,
+                widgetId + 10_000,
+                openAppIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            views.setOnClickPendingIntent(R.id.widget_open_app_button, openPendingIntent)
+
+            val refreshIntent = Intent(context, StudyWidgetProvider::class.java).apply {
+                action = ACTION_REFRESH
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+            }
+            val refreshPendingIntent = PendingIntent.getBroadcast(
+                context,
+                widgetId + 20_000,
+                refreshIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            views.setOnClickPendingIntent(R.id.widget_refresh_button, refreshPendingIntent)
+
+            manager.updateAppWidget(widgetId, views)
+        }
+
+        private fun bindContent(
+            context: Context,
+            views: RemoteViews,
+            deck: DeckEntity?,
+            card: CardEntity?,
+            revealAnswer: Boolean,
+        ) {
+            if (deck == null || card == null) {
+                views.setTextViewText(R.id.widget_deck_name, context.getString(R.string.widget_no_due_title))
+                views.setTextViewText(R.id.widget_body, context.getString(R.string.widget_no_due_body))
+                views.setTextViewText(R.id.widget_reveal_button, context.getString(R.string.widget_refresh))
+                return
+            }
+
+            views.setTextViewText(R.id.widget_deck_name, deck.name)
+            views.setTextViewText(R.id.widget_body, if (revealAnswer) card.back else card.front)
+            views.setTextViewText(
+                R.id.widget_reveal_button,
+                context.getString(if (revealAnswer) R.string.widget_show_question else R.string.widget_show_answer),
+            )
+        }
+
+        private fun widgetPrefs(context: Context) =
+            context.getSharedPreferences("study_widget_state", Context.MODE_PRIVATE)
+
+        private fun isAnswerRevealed(context: Context, widgetId: Int): Boolean {
+            return widgetPrefs(context).getBoolean("revealed_$widgetId", false)
+        }
+
+        private fun setAnswerRevealed(context: Context, widgetId: Int, revealed: Boolean) {
+            widgetPrefs(context).edit().putBoolean("revealed_$widgetId", revealed).apply()
+        }
+
+        private fun startOfDayMillis(now: Long): Long {
+            val c = java.util.Calendar.getInstance()
+            c.timeInMillis = now
+            c.set(java.util.Calendar.HOUR_OF_DAY, 0)
+            c.set(java.util.Calendar.MINUTE, 0)
+            c.set(java.util.Calendar.SECOND, 0)
+            c.set(java.util.Calendar.MILLISECOND, 0)
+            return c.timeInMillis
+        }
+
+        private fun endOfDayMillis(now: Long): Long {
+            val c = java.util.Calendar.getInstance()
+            c.timeInMillis = now
+            c.set(java.util.Calendar.HOUR_OF_DAY, 23)
+            c.set(java.util.Calendar.MINUTE, 59)
+            c.set(java.util.Calendar.SECOND, 59)
+            c.set(java.util.Calendar.MILLISECOND, 999)
+            return c.timeInMillis
+        }
+    }
+}

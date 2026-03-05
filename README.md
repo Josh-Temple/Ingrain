@@ -64,6 +64,15 @@ Widget-based study is feasible if interaction stays lightweight:
 - Tap to reveal answer text
 - Open app for deeper actions/editing
 
+### Widget implementation policy (implemented v1)
+To keep widget scope aligned with current UX principles, implement in phases:
+- **v1 scope (minimal):** show one due card front, tap to reveal back, deep-link to Study for grading/editing.
+- Keep widget interactions text-first and tap-to-reveal; do not add dedicated answer buttons in widget UI.
+- Treat widget state as lightweight (`QUESTION` -> `ANSWER` -> `OPEN_APP`) and keep scheduling decisions in-app.
+- Use graceful fallback states for empty/error conditions (for example: `Open app to study`).
+- Keep payload backward-compatible with current `front/back` cards; concept metadata remains optional.
+
+
 ### MVP sequence for this specialization
 1. Add concept metadata fields + source validation (backward-compatible)
 2. Implement text-first multi-direction quiz flow (tap to reveal)
@@ -94,9 +103,20 @@ Widget-based study is feasible if interaction stays lightweight:
   - Again
   - Good
 
+### Home screen widget (minimal study)
+- Displays one due card (question/front) from the next available deck.
+- `Show answer` reveals the back text on the widget.
+- `Open` deep-links into app Study for grading/editing actions.
+- `Refresh` reloads widget content when deck/card state changes.
+
 ### Backup / Restore
 - Export as Markdown.
 - Import from Markdown or JSON Lines.
+
+### Home screen widget (known limitations and next hardening)
+- If app is already running, widget deep-link now routes to Study via runtime navigation event handling.
+- Due card selection now prioritizes the earliest due candidate across eligible decks (not deck-name order).
+- Widget update work runs off the main thread to reduce ANR risk during launcher-triggered refresh/reveal events.
 
 ### App formatting guide (Decks → Menu)
 Global style controls are available from the formatting guide:
