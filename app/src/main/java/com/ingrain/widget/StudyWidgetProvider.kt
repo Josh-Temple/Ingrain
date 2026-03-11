@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.view.View
 import android.widget.RemoteViews
 import com.ingrain.MainActivity
 import com.ingrain.R
@@ -13,8 +14,10 @@ import com.ingrain.data.AppDatabase
 import com.ingrain.data.CardEntity
 import com.ingrain.data.DeckEntity
 import com.ingrain.data.IngrainRepository
+import com.ingrain.scheduler.SchedulerSettingsStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -31,7 +34,10 @@ class StudyWidgetProvider : AppWidgetProvider() {
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
         super.onDeleted(context, appWidgetIds)
         val prefs = context.getSharedPreferences("study_widget_state", Context.MODE_PRIVATE).edit()
-        appWidgetIds.forEach { prefs.remove("revealed_$it") }
+        appWidgetIds.forEach {
+            prefs.remove("revealed_$it")
+            prefs.remove("displayed_card_$it")
+        }
         prefs.apply()
     }
 
@@ -51,6 +57,7 @@ class StudyWidgetProvider : AppWidgetProvider() {
                     }
                 }
             }
+
             ACTION_REFRESH -> {
                 val pendingResult = goAsync()
                 CoroutineScope(Dispatchers.IO).launch {
@@ -59,12 +66,59 @@ class StudyWidgetProvider : AppWidgetProvider() {
                     pendingResult.finish()
                 }
             }
+
+            ACTION_GRADE -> {
+                val widgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+                val cardId = intent.getLongExtra(EXTRA_CARD_ID, INVALID_CARD_ID)
+                val rating = intent.getStringExtra(EXTRA_RATING)
+                if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID && cardId != INVALID_CARD_ID && !rating.isNullOrBlank()) {
+                    val pendingResult = goAsync()
+                    CoroutineScope(Dispatchers.IO).launch {
+                        handleGradeAction(context, manager, widgetId, cardId, rating)
+                        pendingResult.finish()
+                    }
+                }
+            }
         }
     }
 
     companion object {
         private const val ACTION_REVEAL = "com.ingrain.widget.ACTION_REVEAL"
         private const val ACTION_REFRESH = "com.ingrain.widget.ACTION_REFRESH"
+        private const val ACTION_GRADE = "com.ingrain.widget.ACTION_GRADE"
+
+        private const val EXTRA_CARD_ID = "extra_card_id"
+        private const val EXTRA_RATING = "extra_rating"
+        private const val INVALID_CARD_ID = -1L
+
+        private const val RATING_GOOD = "GOOD"
+        private const val RATING_AGAIN = "AGAIN"
+
+        private suspend fun handleGradeAction(
+            context: Context,
+            manager: AppWidgetManager,
+            widgetId: Int,
+            cardId: Long,
+            rating: String,
+        ) {
+            val storedCardId = getDisplayedCardId(context, widgetId)
+            if (storedCardId != cardId) {
+                updateSingleWidget(context, manager, widgetId, forceQuestionState = true)
+                return
+            }
+
+            val db = AppDatabase.get(context)
+            val repo = IngrainRepository(db)
+            val card = repo.getCard(cardId)
+            if (card != null) {
+                val settings = SchedulerSettingsStore(context).settings.first()
+                val now = System.currentTimeMillis()
+                repo.review(card = card, rating = rating, settings = settings, now = now)
+            }
+            setAnswerRevealed(context, widgetId, false)
+            setDisplayedCardId(context, widgetId, null)
+            updateSingleWidget(context, manager, widgetId, forceQuestionState = true)
+        }
 
         private suspend fun updateSingleWidget(
             context: Context,
@@ -87,6 +141,10 @@ class StudyWidgetProvider : AppWidgetProvider() {
             val due = withContext(Dispatchers.IO) {
                 repo.nextWidgetDueCard(now = now, dayStart = dayStart, dayEnd = dayEnd)
             }
+
+            val displayedCardId = due?.second?.id
+            setDisplayedCardId(context, widgetId, displayedCardId)
+
             bindContent(context, views, due?.first, due?.second, revealAnswer = revealAnswer)
 
             val revealIntent = Intent(context, StudyWidgetProvider::class.java).apply {
@@ -125,6 +183,34 @@ class StudyWidgetProvider : AppWidgetProvider() {
             )
             views.setOnClickPendingIntent(R.id.widget_refresh_button, refreshPendingIntent)
 
+            val unsolvedIntent = Intent(context, StudyWidgetProvider::class.java).apply {
+                action = ACTION_GRADE
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                putExtra(EXTRA_CARD_ID, displayedCardId ?: INVALID_CARD_ID)
+                putExtra(EXTRA_RATING, RATING_AGAIN)
+            }
+            val unsolvedPendingIntent = PendingIntent.getBroadcast(
+                context,
+                widgetId + 30_000,
+                unsolvedIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            views.setOnClickPendingIntent(R.id.widget_unsolved_button, unsolvedPendingIntent)
+
+            val solvedIntent = Intent(context, StudyWidgetProvider::class.java).apply {
+                action = ACTION_GRADE
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                putExtra(EXTRA_CARD_ID, displayedCardId ?: INVALID_CARD_ID)
+                putExtra(EXTRA_RATING, RATING_GOOD)
+            }
+            val solvedPendingIntent = PendingIntent.getBroadcast(
+                context,
+                widgetId + 40_000,
+                solvedIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            views.setOnClickPendingIntent(R.id.widget_solved_button, solvedPendingIntent)
+
             manager.updateAppWidget(widgetId, views)
         }
 
@@ -139,6 +225,7 @@ class StudyWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.widget_deck_name, context.getString(R.string.widget_no_due_title))
                 views.setTextViewText(R.id.widget_body, context.getString(R.string.widget_no_due_body))
                 views.setTextViewText(R.id.widget_reveal_button, context.getString(R.string.widget_refresh))
+                views.setViewVisibility(R.id.widget_grade_row, View.GONE)
                 return
             }
 
@@ -148,6 +235,7 @@ class StudyWidgetProvider : AppWidgetProvider() {
                 R.id.widget_reveal_button,
                 context.getString(if (revealAnswer) R.string.widget_show_question else R.string.widget_show_answer),
             )
+            views.setViewVisibility(R.id.widget_grade_row, if (revealAnswer) View.VISIBLE else View.GONE)
         }
 
         private fun widgetPrefs(context: Context) =
@@ -159,6 +247,21 @@ class StudyWidgetProvider : AppWidgetProvider() {
 
         private fun setAnswerRevealed(context: Context, widgetId: Int, revealed: Boolean) {
             widgetPrefs(context).edit().putBoolean("revealed_$widgetId", revealed).apply()
+        }
+
+        private fun getDisplayedCardId(context: Context, widgetId: Int): Long {
+            return widgetPrefs(context).getLong("displayed_card_$widgetId", INVALID_CARD_ID)
+        }
+
+        private fun setDisplayedCardId(context: Context, widgetId: Int, cardId: Long?) {
+            val editor = widgetPrefs(context).edit()
+            val key = "displayed_card_$widgetId"
+            if (cardId == null) {
+                editor.remove(key)
+            } else {
+                editor.putLong(key, cardId)
+            }
+            editor.apply()
         }
 
         private fun startOfDayMillis(now: Long): Long {

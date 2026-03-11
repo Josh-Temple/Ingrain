@@ -163,3 +163,16 @@
 1. Re-run `./gradlew test --tests com.ingrain.IngrainRepositoryTest` in CI or a local Java 17 environment to confirm widget regression status.
 2. Add instrumentation coverage for widget reveal/open flows from launcher interactions (cold and warm app process).
 3. Add widget interaction analytics (`impression`, `reveal`, `open_app`) once event pipeline decisions are finalized.
+
+## Session Update (Widget v2: Stable On-Widget Grading)
+- Added widget grading actions after reveal: `Unsolved` (maps to `AGAIN`) and `Solved` (maps to `GOOD`).
+- Kept existing `Show answer`, `Refresh`, and `Open` actions; grading buttons are hidden until answer reveal.
+- Implemented stale-card guard by persisting `displayed_card_<widgetId>` and validating it before applying grade.
+- Widget grade path now uses shared scheduler settings (`SchedulerSettingsStore`) so spacing behavior stays aligned with in-app study review.
+- Added new widget string resources for grading labels.
+- Updated README widget policy from v1-only to include v2 grading scope and state-flow notes.
+
+### Suggested next implementation slice
+1. Add widget interaction analytics for `grade_again` and `grade_good` alongside existing reveal/open/refresh metrics.
+2. Add truncation/markdown normalization for long card text before widget rendering.
+3. Add instrumentation tests around widget action race scenarios (rapid refresh + grade taps).
