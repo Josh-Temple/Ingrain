@@ -67,8 +67,9 @@ Widget-based study is feasible if interaction stays lightweight:
 ### Widget implementation policy (implemented v1)
 To keep widget scope aligned with current UX principles, implement in phases:
 - **v1 scope (minimal):** show one due card front, tap to reveal back, deep-link to Study for grading/editing.
-- Keep widget interactions text-first and tap-to-reveal; do not add dedicated answer buttons in widget UI.
-- Treat widget state as lightweight (`QUESTION` -> `ANSWER` -> `OPEN_APP`) and keep scheduling decisions in-app.
+- **v2 scope (stable grading on widget):** after reveal, allow `Solved` / `Unsolved` grading directly on widget (mapped to `Good` / `Again`) with stale-card guards.
+- Keep widget interactions text-first and tap-to-reveal; grading buttons appear only after reveal.
+- Treat widget state as lightweight (`QUESTION` -> `ANSWER` -> `GRADE/OPEN_APP`) and keep scheduling logic shared with in-app scheduler settings.
 - Use graceful fallback states for empty/error conditions (for example: `Open app to study`).
 - Keep payload backward-compatible with current `front/back` cards; concept metadata remains optional.
 
@@ -108,6 +109,7 @@ To keep widget scope aligned with current UX principles, implement in phases:
 - `Show answer` reveals the back text on the widget.
 - `Open` deep-links into app Study for grading/editing actions.
 - `Refresh` reloads widget content when deck/card state changes.
+- After revealing the answer, `Unsolved` (Again) and `Solved` (Good) can be recorded directly on the widget.
 
 ### Backup / Restore
 - Export as Markdown.

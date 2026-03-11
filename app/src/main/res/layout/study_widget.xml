@@ -57,4 +57,28 @@
             android:text="@string/widget_open" />
     </LinearLayout>
 
+    <LinearLayout
+        android:id="@+id/widget_grade_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <Button
+            android:id="@+id/widget_unsolved_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/widget_unsolved" />
+
+        <Button
+            android:id="@+id/widget_solved_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:text="@string/widget_solved" />
+    </LinearLayout>
+
 </LinearLayout>

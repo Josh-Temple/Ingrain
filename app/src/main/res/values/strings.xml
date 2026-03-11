@@ -8,4 +8,6 @@
     <string name="widget_placeholder_body">Card content</string>
     <string name="widget_open">Open</string>
     <string name="widget_refresh_symbol">↻</string>
+    <string name="widget_unsolved">Unsolved</string>
+    <string name="widget_solved">Solved</string>
 </resources>
