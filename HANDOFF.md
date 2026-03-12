@@ -190,3 +190,13 @@
 1. Add search/sort controls (created/due/tags) to `DeckCardsScreen` for large decks.
 2. Add widget telemetry for deck-scope changes and picker saves.
 3. Add instrumentation test for widget picker flow (configure -> refresh -> due selection) and deck-cards navigation flow.
+
+## Session Update (Widget Text Clamp Removal)
+- Removed the widget body line clamp/ellipsis so card text is no longer forcibly truncated to 7 lines.
+- Widget now renders as much of the front/back text as can fit in the current widget size without explicit max-lines clipping.
+- Updated README widget feature notes to reflect full text display behavior and adjusted next-step wording to avoid hard truncation guidance.
+
+### Suggested next implementation slice
+1. Add optional markdown/plain-text normalization for widget display while keeping full-text behavior.
+2. Validate rendering on small/medium/large widget sizes across OEM launchers to confirm readability.
+
