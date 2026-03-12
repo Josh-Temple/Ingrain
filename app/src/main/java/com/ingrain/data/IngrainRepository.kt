@@ -84,6 +84,8 @@ class IngrainRepository(private val db: AppDatabase) {
 
     fun observeDecks(): Flow<List<DeckEntity>> = db.deckDao().observeAll()
 
+    fun observeCardsByDeck(deckId: Long): Flow<List<CardEntity>> = db.cardDao().observeByDeck(deckId)
+
     suspend fun createDeck(name: String): Result<Unit> = runCatching {
         val trimmed = name.trim()
         require(trimmed.isNotBlank()) { "Deck name cannot be blank" }
@@ -211,8 +213,17 @@ class IngrainRepository(private val db: AppDatabase) {
     }
 
 
-    suspend fun nextWidgetDueCard(now: Long, dayStart: Long, dayEnd: Long): Pair<DeckEntity, CardEntity>? {
-        val decks = db.deckDao().getAll()
+    suspend fun nextWidgetDueCard(
+        now: Long,
+        dayStart: Long,
+        dayEnd: Long,
+        selectedDeckId: Long? = null,
+    ): Pair<DeckEntity, CardEntity>? {
+        val decks = if (selectedDeckId == null) {
+            db.deckDao().getAll()
+        } else {
+            db.deckDao().getById(selectedDeckId)?.let { listOf(it) } ?: emptyList()
+        }
         var best: Pair<DeckEntity, CardEntity>? = null
         for (deck in decks) {
             val card = nextDueCard(deck = deck, now = now, dayStart = dayStart, dayEnd = dayEnd) ?: continue

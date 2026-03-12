@@ -10,4 +10,11 @@
     <string name="widget_refresh_symbol">↻</string>
     <string name="widget_unsolved">Unsolved</string>
     <string name="widget_solved">Solved</string>
+    <string name="widget_deck_selector_default">Deck: All decks ▾</string>
+    <string name="widget_deck_selector_label">Deck: %1$s ▾</string>
+    <string name="widget_pick_deck_title">Select deck for this widget</string>
+    <string name="widget_all_decks_option">All decks</string>
+    <string name="widget_selected_deck_empty">Selected deck</string>
+    <string name="widget_save">Save</string>
+    <string name="widget_cancel">Cancel</string>
 </resources>

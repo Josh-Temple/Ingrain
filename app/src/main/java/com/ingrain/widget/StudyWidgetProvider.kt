@@ -33,12 +33,7 @@ class StudyWidgetProvider : AppWidgetProvider() {
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
         super.onDeleted(context, appWidgetIds)
-        val prefs = context.getSharedPreferences("study_widget_state", Context.MODE_PRIVATE).edit()
-        appWidgetIds.forEach {
-            prefs.remove("revealed_$it")
-            prefs.remove("displayed_card_$it")
-        }
-        prefs.apply()
+        appWidgetIds.forEach { StudyWidgetPrefs.clearForWidget(context, it) }
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -50,8 +45,8 @@ class StudyWidgetProvider : AppWidgetProvider() {
                 if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
                     val pendingResult = goAsync()
                     CoroutineScope(Dispatchers.IO).launch {
-                        val current = isAnswerRevealed(context, widgetId)
-                        setAnswerRevealed(context, widgetId, !current)
+                        val current = StudyWidgetPrefs.isAnswerRevealed(context, widgetId)
+                        StudyWidgetPrefs.setAnswerRevealed(context, widgetId, !current)
                         updateSingleWidget(context, manager, widgetId, forceQuestionState = false)
                         pendingResult.finish()
                     }
@@ -94,6 +89,17 @@ class StudyWidgetProvider : AppWidgetProvider() {
         private const val RATING_GOOD = "GOOD"
         private const val RATING_AGAIN = "AGAIN"
 
+        fun refreshSingleWidget(
+            context: Context,
+            manager: AppWidgetManager,
+            widgetId: Int,
+            forceQuestionState: Boolean,
+        ) {
+            CoroutineScope(Dispatchers.IO).launch {
+                updateSingleWidget(context, manager, widgetId, forceQuestionState)
+            }
+        }
+
         private suspend fun handleGradeAction(
             context: Context,
             manager: AppWidgetManager,
@@ -101,7 +107,7 @@ class StudyWidgetProvider : AppWidgetProvider() {
             cardId: Long,
             rating: String,
         ) {
-            val storedCardId = getDisplayedCardId(context, widgetId)
+            val storedCardId = StudyWidgetPrefs.getDisplayedCardId(context, widgetId)
             if (storedCardId != cardId) {
                 updateSingleWidget(context, manager, widgetId, forceQuestionState = true)
                 return
@@ -115,8 +121,8 @@ class StudyWidgetProvider : AppWidgetProvider() {
                 val now = System.currentTimeMillis()
                 repo.review(card = card, rating = rating, settings = settings, now = now)
             }
-            setAnswerRevealed(context, widgetId, false)
-            setDisplayedCardId(context, widgetId, null)
+            StudyWidgetPrefs.setAnswerRevealed(context, widgetId, false)
+            StudyWidgetPrefs.setDisplayedCardId(context, widgetId, null)
             updateSingleWidget(context, manager, widgetId, forceQuestionState = true)
         }
 
@@ -134,18 +140,19 @@ class StudyWidgetProvider : AppWidgetProvider() {
             val dayEnd = endOfDayMillis(now)
 
             if (forceQuestionState) {
-                setAnswerRevealed(context, widgetId, false)
+                StudyWidgetPrefs.setAnswerRevealed(context, widgetId, false)
             }
-            val revealAnswer = isAnswerRevealed(context, widgetId)
+            val revealAnswer = StudyWidgetPrefs.isAnswerRevealed(context, widgetId)
+            val selectedDeckId = StudyWidgetPrefs.getSelectedDeckId(context, widgetId)
 
             val due = withContext(Dispatchers.IO) {
-                repo.nextWidgetDueCard(now = now, dayStart = dayStart, dayEnd = dayEnd)
+                repo.nextWidgetDueCard(now = now, dayStart = dayStart, dayEnd = dayEnd, selectedDeckId = selectedDeckId)
             }
 
             val displayedCardId = due?.second?.id
-            setDisplayedCardId(context, widgetId, displayedCardId)
+            StudyWidgetPrefs.setDisplayedCardId(context, widgetId, displayedCardId)
 
-            bindContent(context, views, due?.first, due?.second, revealAnswer = revealAnswer)
+            bindContent(context, views, due?.first, due?.second, revealAnswer = revealAnswer, selectedDeckId = selectedDeckId)
 
             val revealIntent = Intent(context, StudyWidgetProvider::class.java).apply {
                 action = ACTION_REVEAL
@@ -182,6 +189,18 @@ class StudyWidgetProvider : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
             views.setOnClickPendingIntent(R.id.widget_refresh_button, refreshPendingIntent)
+
+            val selectDeckIntent = Intent(context, WidgetDeckPickerActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+            }
+            val selectDeckPendingIntent = PendingIntent.getActivity(
+                context,
+                widgetId + 25_000,
+                selectDeckIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            views.setOnClickPendingIntent(R.id.widget_deck_selector_button, selectDeckPendingIntent)
 
             val unsolvedIntent = Intent(context, StudyWidgetProvider::class.java).apply {
                 action = ACTION_GRADE
@@ -220,7 +239,15 @@ class StudyWidgetProvider : AppWidgetProvider() {
             deck: DeckEntity?,
             card: CardEntity?,
             revealAnswer: Boolean,
+            selectedDeckId: Long?,
         ) {
+            val label = when {
+                deck != null -> deck.name
+                selectedDeckId == null -> context.getString(R.string.widget_all_decks_option)
+                else -> context.getString(R.string.widget_selected_deck_empty)
+            }
+            views.setTextViewText(R.id.widget_deck_selector_button, context.getString(R.string.widget_deck_selector_label, label))
+
             if (deck == null || card == null) {
                 views.setTextViewText(R.id.widget_deck_name, context.getString(R.string.widget_no_due_title))
                 views.setTextViewText(R.id.widget_body, context.getString(R.string.widget_no_due_body))
@@ -236,32 +263,6 @@ class StudyWidgetProvider : AppWidgetProvider() {
                 context.getString(if (revealAnswer) R.string.widget_show_question else R.string.widget_show_answer),
             )
             views.setViewVisibility(R.id.widget_grade_row, if (revealAnswer) View.VISIBLE else View.GONE)
-        }
-
-        private fun widgetPrefs(context: Context) =
-            context.getSharedPreferences("study_widget_state", Context.MODE_PRIVATE)
-
-        private fun isAnswerRevealed(context: Context, widgetId: Int): Boolean {
-            return widgetPrefs(context).getBoolean("revealed_$widgetId", false)
-        }
-
-        private fun setAnswerRevealed(context: Context, widgetId: Int, revealed: Boolean) {
-            widgetPrefs(context).edit().putBoolean("revealed_$widgetId", revealed).apply()
-        }
-
-        private fun getDisplayedCardId(context: Context, widgetId: Int): Long {
-            return widgetPrefs(context).getLong("displayed_card_$widgetId", INVALID_CARD_ID)
-        }
-
-        private fun setDisplayedCardId(context: Context, widgetId: Int, cardId: Long?) {
-            val editor = widgetPrefs(context).edit()
-            val key = "displayed_card_$widgetId"
-            if (cardId == null) {
-                editor.remove(key)
-            } else {
-                editor.putLong(key, cardId)
-            }
-            editor.apply()
         }
 
         private fun startOfDayMillis(now: Long): Long {

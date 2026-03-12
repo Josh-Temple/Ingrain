@@ -4,5 +4,6 @@
     android:minHeight="110dp"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/study_widget"
+    android:configure="com.ingrain.widget.WidgetDeckPickerActivity"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen" />

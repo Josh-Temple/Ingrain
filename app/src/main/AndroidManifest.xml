@@ -15,6 +15,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".widget.WidgetDeckPickerActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Ingrain" />
+
         <receiver
             android:name=".widget.StudyWidgetProvider"
             android:exported="true">

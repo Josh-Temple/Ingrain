@@ -6,10 +6,18 @@
     android:padding="12dp"
     android:background="#0D1F36">
 
+    <Button
+        android:id="@+id/widget_deck_selector_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textAllCaps="false"
+        android:text="@string/widget_deck_selector_default" />
+
     <TextView
         android:id="@+id/widget_deck_name"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
         android:textColor="#EAF1FC"
         android:textStyle="bold"
         android:textSize="14sp"
