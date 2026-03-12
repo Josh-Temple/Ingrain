@@ -176,3 +176,17 @@
 1. Add widget interaction analytics for `grade_again` and `grade_good` alongside existing reveal/open/refresh metrics.
 2. Add truncation/markdown normalization for long card text before widget rendering.
 3. Add instrumentation tests around widget action race scenarios (rapid refresh + grade taps).
+
+
+## Session Update (Widget Deck Picker + Deck Card List Navigation)
+- Added per-widget deck selection support using a deck picker activity with dropdown (`All decks` or a specific deck).
+- Widget now shows a `Deck: ... ▾` control and filters due-card selection by the selected deck when configured.
+- Existing widget reveal/grade/open behavior remains unchanged; only card source scope is configurable per widget instance.
+- Added deck-management navigation: Deck details now includes `View & Edit Cards`, opening a deck-scoped card list.
+- Added `DeckCardsScreen` so users can browse cards inside a deck and open `Edit Card` directly from the list.
+- Added repository support `observeCardsByDeck` and test coverage for selected-deck widget filtering.
+
+### Suggested next implementation slice
+1. Add search/sort controls (created/due/tags) to `DeckCardsScreen` for large decks.
+2. Add widget telemetry for deck-scope changes and picker saves.
+3. Add instrumentation test for widget picker flow (configure -> refresh -> due selection) and deck-cards navigation flow.

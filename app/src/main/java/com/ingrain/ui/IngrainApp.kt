@@ -15,6 +15,7 @@ import com.ingrain.ui.screens.BackupScreen
 import com.ingrain.ui.screens.DeckDetailScreen
 import com.ingrain.ui.screens.DeckListScreen
 import com.ingrain.ui.screens.EditCardScreen
+import com.ingrain.ui.screens.DeckCardsScreen
 import com.ingrain.ui.screens.ImportScreen
 import com.ingrain.ui.screens.SettingsScreen
 import com.ingrain.ui.screens.StudyScreen
@@ -28,6 +29,7 @@ object Routes {
     const val BACKUP = "backup/{deckId}"
     const val SETTINGS = "settings/{deckId}"
     const val EDIT_CARD = "edit-card/{cardId}"
+    const val DECK_CARDS = "deck-cards/{deckId}"
 }
 
 @Composable
@@ -69,6 +71,7 @@ fun IngrainApp(
                 onImport = { nav.navigate("import/$deckId") },
                 onSettings = { nav.navigate("settings/$deckId") },
                 onBackup = { nav.navigate("backup/$deckId") },
+                onManageCards = { nav.navigate("deck-cards/$deckId") },
                 onClose = { nav.popBackStack() },
             )
         }
@@ -90,6 +93,15 @@ fun IngrainApp(
                         popUpTo(Routes.DECKS) { inclusive = true }
                     }
                 },
+            )
+        }
+        composable(Routes.DECK_CARDS, arguments = listOf(navArgument("deckId") { type = NavType.LongType })) { entry ->
+            val deckId = entry.arguments?.getLong("deckId") ?: 0L
+            DeckCardsScreen(
+                deckId = deckId,
+                repo = repo,
+                onEditCard = { nav.navigate("edit-card/$it") },
+                onBack = { nav.popBackStack() },
             )
         }
         composable(Routes.SETTINGS, arguments = listOf(navArgument("deckId") { type = NavType.LongType })) { entry ->

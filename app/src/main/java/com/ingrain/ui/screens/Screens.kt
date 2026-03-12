@@ -569,6 +569,7 @@ fun DeckDetailScreen(
     onImport: () -> Unit,
     onSettings: () -> Unit,
     onBackup: () -> Unit,
+    onManageCards: () -> Unit,
     onClose: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -595,6 +596,9 @@ fun DeckDetailScreen(
             }
             TextButton(shape = AppButtonShape, onClick = onImport) {
                 Text("Add Cards", style = MaterialTheme.typography.headlineSmall)
+            }
+            TextButton(shape = AppButtonShape, onClick = onManageCards) {
+                Text("View & Edit Cards", style = MaterialTheme.typography.headlineSmall)
             }
             TextButton(shape = AppButtonShape, onClick = onSettings) {
                 Text("Deck Settings", style = MaterialTheme.typography.headlineSmall)
@@ -1814,6 +1818,81 @@ fun StudyScreen(
                 TextButton(shape = AppButtonShape, onClick = { pendingCardDelete = null }) { Text("Cancel") }
             },
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DeckCardsScreen(
+    deckId: Long,
+    repo: IngrainRepository,
+    onEditCard: (Long) -> Unit,
+    onBack: () -> Unit,
+) {
+    val deck by produceState<DeckEntity?>(initialValue = null, deckId) { value = repo.getDeck(deckId) }
+    val cards by produceState(initialValue = emptyList<CardEntity>(), deckId, repo) {
+        repo.observeCardsByDeck(deckId).collect { value = it }
+    }
+
+    Scaffold(topBar = { TopAppBar(title = { Text(deck?.name ?: "Deck cards") }) }) { p ->
+        Column(
+            modifier = Modifier
+                .padding(p)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = "Cards (${cards.size})",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (cards.isEmpty()) {
+                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Text("No cards in this deck yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    cards.forEachIndexed { index, card ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(MaterialTheme.shapes.small)
+                                .clickable { onEditCard(card.id) }
+                                .padding(vertical = 10.dp, horizontal = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(
+                                text = card.front,
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 2,
+                            )
+                            Text(
+                                text = card.back,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                            )
+                        }
+                        if (index < cards.lastIndex) HorizontalDivider()
+                    }
+                }
+            }
+
+            Button(
+                shape = AppButtonShape,
+                onClick = onBack,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                Text("Back", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
     }
 }
 

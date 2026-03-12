@@ -170,5 +170,34 @@ class IngrainRepositoryTest {
         assertEquals("Not equal to all recall biases", updated.commonMisuse)
     }
 
+    @Test
+    fun nextWidgetDueCard_respectsSelectedDeckFilter() = runBlocking {
+        val now = 1_700_000_000_000L
+        repo.addCard(deckName = "Alpha", front = "A", back = "A", tags = emptyList(), now = now).getOrThrow()
+        repo.addCard(deckName = "Beta", front = "B", back = "B", tags = emptyList(), now = now).getOrThrow()
+
+        val alphaDeck = repo.findDeckByName("Alpha")!!
+        val betaDeck = repo.findDeckByName("Beta")!!
+
+        val due = repo.nextWidgetDueCard(
+            now = now + 100,
+            dayStart = now - 1000,
+            dayEnd = now + 10_000,
+            selectedDeckId = betaDeck.id,
+        )
+
+        assertNotNull(due)
+        assertEquals(betaDeck.id, due?.first?.id)
+        assertEquals("B", due?.second?.front)
+
+        val missing = repo.nextWidgetDueCard(
+            now = now + 100,
+            dayStart = now - 1000,
+            dayEnd = now + 10_000,
+            selectedDeckId = betaDeck.id + alphaDeck.id + 9_999,
+        )
+        assertEquals(null, missing)
+    }
+
 }
 

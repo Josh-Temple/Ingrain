@@ -86,7 +86,7 @@ To keep widget scope aligned with current UX principles, implement in phases:
 
 ### Decks
 - Create, rename, and delete decks.
-- Open deck details and navigate to Study / Add & Import / Export / Settings.
+- Open deck details and navigate to Study / Add & Import / Card list & Edit / Export / Settings.
 
 ### Add & Import
 - Manual card entry.
@@ -105,10 +105,12 @@ To keep widget scope aligned with current UX principles, implement in phases:
   - Good
 
 ### Home screen widget (minimal study)
-- Displays one due card (question/front) from the next available deck.
+- Displays one due card (question/front) from either the selected deck or all decks.
+- Deck scope is selectable via a deck picker (`All decks` or one deck per widget instance).
 - `Show answer` reveals the back text on the widget.
 - `Open` deep-links into app Study for grading/editing actions.
 - `Refresh` reloads widget content when deck/card state changes.
+- `Deck` opens a picker with a dropdown list to choose which deck the widget should study.
 - After revealing the answer, `Unsolved` (Again) and `Solved` (Good) can be recorded directly on the widget.
 
 ### Backup / Restore
