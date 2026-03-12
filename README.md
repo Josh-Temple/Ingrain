@@ -106,6 +106,7 @@ To keep widget scope aligned with current UX principles, implement in phases:
 
 ### Home screen widget (minimal study)
 - Displays one due card (question/front) from either the selected deck or all decks.
+- Widget card text is shown without an in-widget line clamp so longer content can render in full within the available widget area.
 - Deck scope is selectable via a deck picker (`All decks` or one deck per widget instance).
 - `Show answer` reveals the back text on the widget.
 - `Open` deep-links into app Study for grading/editing actions.

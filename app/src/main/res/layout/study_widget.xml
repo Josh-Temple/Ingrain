@@ -33,8 +33,6 @@
         android:layout_marginTop="8dp"
         android:textColor="#EAF1FC"
         android:textSize="15sp"
-        android:maxLines="7"
-        android:ellipsize="end"
         android:text="@string/widget_placeholder_body" />
 
     <LinearLayout
